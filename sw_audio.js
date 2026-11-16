@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mba-audio-vault-enc-v2.0.0';
+const CACHE_NAME = 'mba-audio-vault-enc-v2.1.0-1794868923';
 
 const CORE_ASSETS = [
   './index.html',
@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   './manifest_audio.json',
   './icon_audio_192.png',
   './icon_audio_512.png',
+  './keepalive.wav',
   './vendor/pdf.min.js',
   './vendor/pdf.worker.min.js',
   './audio_data/catalog.enc.json',
@@ -52,6 +53,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.includes('/api/')) return;
+
+  const isHtmlOrNav = req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+  if (isHtmlOrNav) {
+    event.respondWith(
+      fetch(req, { cache: 'no-cache' })
+        .then((networkResp) => {
+          if (networkResp && networkResp.ok) {
+            const copy = networkResp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return networkResp;
+        })
+        .catch(() => caches.match(req, { ignoreSearch: true }))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then((cachedResp) => {

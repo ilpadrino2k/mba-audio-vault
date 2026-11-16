@@ -1089,6 +1089,8 @@
   </div>
 </div>
 
+<audio id="bgKeepAliveAudio" src="./keepalive.wav" loop playsinline webkit-playsinline preload="auto" style="display:none;"></audio>
+
 <!-- ENTÊTE -->
 <header>
     <div class="header-left">
@@ -1098,7 +1100,7 @@
         <span class="badge-course" id="headerCourseBadge">MBA AUDIO</span>
         <div class="header-title-block">
             <h1>Lecteur Universel</h1>
-            <p id="headerSubtitle">Architecture Découplée • 100% Hors-Ligne</p>
+            <p id="headerSubtitle">Architecture Découplée • 100% Hors-Ligne • v2.1</p>
         </div>
     </div>
     <div class="header-actions">
@@ -1932,6 +1934,9 @@ let availableVoices = [];
 let selectedVoice = null;
 let currentUtterance = null;
 let speechToken = 0;
+let speechSpeakTimer = null;
+let keepAliveDisabledForSession = false;
+const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 let lastClickedParaIdx = -1;
 let lastClickTime = 0;
@@ -2336,7 +2341,7 @@ function handleParagraphClick(e, pIdx) {
 }
 
 function playFromParagraph(pIdx) {
-    stopAudio();
+    stopAudio(true);
     currentParagraphIdx = pIdx;
     currentWordCharOffset = 0;
     isPlaying = true;
@@ -2344,12 +2349,11 @@ function playFromParagraph(pIdx) {
     hydrateParagraphWindow(pIdx);
     highlightActiveParagraph(pIdx, true);
     requestWakeLock();
-    startBackgroundAudioKeepAlive();
     readCurrentParagraph();
 }
 
 function playFromWord(pIdx, charOffset) {
-    stopAudio();
+    stopAudio(true);
     currentParagraphIdx = pIdx;
     currentWordCharOffset = charOffset;
     isPlaying = true;
@@ -2357,7 +2361,6 @@ function playFromWord(pIdx, charOffset) {
     hydrateParagraphWindow(pIdx);
     highlightActiveParagraph(pIdx, true);
     requestWakeLock();
-    startBackgroundAudioKeepAlive();
     readCurrentParagraph();
 }
 
@@ -2367,6 +2370,11 @@ function startReadingFromStart() {
 
 function readCurrentParagraph() {
     if (!('speechSynthesis' in window) || !activeDocument) return;
+
+    if (speechSpeakTimer) {
+        clearTimeout(speechSpeakTimer);
+        speechSpeakTimer = null;
+    }
 
     if (currentParagraphIdx >= activeDocument.paragraphs.length) {
         if (sleepModeMinutes === -1) {
@@ -2384,44 +2392,98 @@ function readCurrentParagraph() {
     const textToSpeak = startingOffset > 0 ? pData.clean_text.substring(startingOffset) : pData.clean_text;
 
     const myToken = ++speechToken;
-    currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-    if (selectedVoice) currentUtterance.voice = selectedVoice;
-    currentUtterance.lang = activeDocument.lang === 'en' ? 'en-US' : 'fr-CA';
-    currentUtterance.rate = currentSpeed;
+    const hadActiveSpeech = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+    if (hadActiveSpeech) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
 
-    currentUtterance.onstart = () => {
-        if (myToken !== speechToken) return;
-        hydrateParagraphWindow(currentParagraphIdx);
-        highlightActiveParagraph(currentParagraphIdx, true);
-        updateProgress();
-        saveResumePosition();
-        updateMediaSessionMetadata();
+    const speakUtteranceNow = () => {
+        if (myToken !== speechToken || !isPlaying) return;
+
+        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+        if (selectedVoice) currentUtterance.voice = selectedVoice;
+        currentUtterance.lang = activeDocument.lang === 'en' ? 'en-US' : 'fr-CA';
+        currentUtterance.rate = currentSpeed;
+        const speakStartedAt = Date.now();
+
+        currentUtterance.onstart = () => {
+            if (myToken !== speechToken) return;
+            hydrateParagraphWindow(currentParagraphIdx);
+            highlightActiveParagraph(currentParagraphIdx, true);
+            updateProgress();
+            saveResumePosition();
+            updateMediaSessionMetadata();
+        };
+
+        currentUtterance.onboundary = (event) => {
+            if (myToken !== speechToken) return;
+            if (event.name === 'word' || !event.name) {
+                const absOffset = startingOffset + event.charIndex;
+                currentWordCharOffset = absOffset;
+                highlightCurrentWord(currentParagraphIdx, absOffset);
+            }
+        };
+
+        currentUtterance.onend = () => {
+            if (myToken !== speechToken) return;
+            clearWordHighlights();
+            currentWordCharOffset = 0;
+            if (isPlaying) {
+                currentParagraphIdx++;
+                readCurrentParagraph();
+            }
+        };
+
+        currentUtterance.onerror = (event) => {
+            if (myToken !== speechToken) return;
+            const err = event && event.error ? String(event.error) : '';
+            // Sur iOS Safari, <audio> keep-alive ou un cancel() asynchrone peut couper speechSynthesis
+            if (isPlaying && !keepAliveDisabledForSession && (Date.now() - speakStartedAt < 1200 || err === 'interrupted')) {
+                keepAliveDisabledForSession = true;
+                stopBackgroundAudioKeepAlive();
+                speechSpeakTimer = setTimeout(() => {
+                    if (myToken === speechToken && isPlaying) {
+                        readCurrentParagraph();
+                    }
+                }, 90);
+                return;
+            }
+            if (isPlaying && (err === 'canceled' || err === 'interrupted')) {
+                speechSpeakTimer = setTimeout(() => {
+                    if (myToken === speechToken && isPlaying) {
+                        readCurrentParagraph();
+                    }
+                }, 90);
+                return;
+            }
+            clearWordHighlights();
+            stopAudio();
+        };
+
+        window.speechSynthesis.speak(currentUtterance);
     };
 
-    currentUtterance.onboundary = (event) => {
-        if (myToken !== speechToken) return;
-        if (event.name === 'word' || !event.name) {
-            highlightCurrentWord(currentParagraphIdx, startingOffset + event.charIndex);
+    const startKeepAliveAndSpeak = () => {
+        const delayMs = hadActiveSpeech ? 75 : 0;
+        if (keepAliveDisabledForSession) {
+            if (delayMs > 0) {
+                speechSpeakTimer = setTimeout(speakUtteranceNow, delayMs);
+            } else {
+                speakUtteranceNow();
+            }
+            return;
         }
+        startBackgroundAudioKeepAlive().then(() => {
+            if (myToken !== speechToken || !isPlaying) return;
+            if (delayMs > 0) {
+                speechSpeakTimer = setTimeout(speakUtteranceNow, delayMs);
+            } else {
+                speakUtteranceNow();
+            }
+        });
     };
 
-    currentUtterance.onend = () => {
-        if (myToken !== speechToken) return;
-        clearWordHighlights();
-        currentWordCharOffset = 0;
-        if (isPlaying) {
-            currentParagraphIdx++;
-            readCurrentParagraph();
-        }
-    };
-
-    currentUtterance.onerror = () => {
-        if (myToken !== speechToken) return;
-        clearWordHighlights();
-        stopAudio();
-    };
-
-    window.speechSynthesis.speak(currentUtterance);
+    startKeepAliveAndSpeak();
 }
 
 function highlightCurrentWord(pIdx, charIndex) {
@@ -2471,25 +2533,30 @@ function togglePlay() {
 
 function resumeAudio() {
     if (!('speechSynthesis' in window)) return;
-    startBackgroundAudioKeepAlive();
-    if (window.speechSynthesis.paused) {
+    isPlaying = true;
+    updatePlayBtn(true);
+    requestWakeLock();
+    if (!isIOSDevice && window.speechSynthesis.paused) {
+        startBackgroundAudioKeepAlive();
         window.speechSynthesis.resume();
-        isPlaying = true;
-        updatePlayBtn(true);
-        requestWakeLock();
         updateMediaSessionMetadata();
     } else {
-        isPlaying = true;
-        updatePlayBtn(true);
-        requestWakeLock();
-        updateMediaSessionMetadata();
         readCurrentParagraph();
     }
 }
 
 function pauseAudio() {
     if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.pause();
+    speechToken++;
+    if (speechSpeakTimer) {
+        clearTimeout(speechSpeakTimer);
+        speechSpeakTimer = null;
+    }
+    if (isIOSDevice) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+    } else {
+        window.speechSynthesis.pause();
+    }
     isPlaying = false;
     updatePlayBtn(false);
     releaseWakeLock();
@@ -2498,17 +2565,23 @@ function pauseAudio() {
     saveResumePosition();
 }
 
-function stopAudio() {
+function stopAudio(keepSession = false) {
     speechToken++;
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    if (speechSpeakTimer) {
+        clearTimeout(speechSpeakTimer);
+        speechSpeakTimer = null;
+    }
+    if ('speechSynthesis' in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
     }
     isPlaying = false;
     updatePlayBtn(false);
     clearWordHighlights();
-    releaseWakeLock();
-    stopBackgroundAudioKeepAlive();
-    updateMediaSessionMetadata();
+    if (!keepSession) {
+        releaseWakeLock();
+        stopBackgroundAudioKeepAlive();
+        updateMediaSessionMetadata();
+    }
 }
 
 function prevParagraph() {
@@ -2597,8 +2670,6 @@ function cycleSpeed() {
     document.getElementById('speedBtn').innerText = `${currentSpeed}x`;
     saveResumePosition();
     if (isPlaying) {
-        speechToken++;
-        window.speechSynthesis.cancel();
         readCurrentParagraph();
     }
 }
@@ -2681,7 +2752,11 @@ function updateMediaSessionMetadata() {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: activeDocument.title || 'Lecture MBA',
                 artist: activeDocument.folder || 'MBA HEC Montréal',
-                album: activeDocument.category || 'Lecteur Audio MBA'
+                album: activeDocument.category || 'Lecteur Audio MBA',
+                artwork: [
+                    { src: './icon_audio_192.png', sizes: '192x192', type: 'image/png' },
+                    { src: './icon_audio_512.png', sizes: '512x512', type: 'image/png' }
+                ]
             });
         }
         navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
@@ -2689,7 +2764,15 @@ function updateMediaSessionMetadata() {
 }
 
 function startBackgroundAudioKeepAlive() {
+    if (keepAliveDisabledForSession) {
+        return Promise.resolve(false);
+    }
+
+    let playPromise = Promise.resolve();
     try {
+        if (!bgKeepAliveAudioEl) {
+            bgKeepAliveAudioEl = document.getElementById('bgKeepAliveAudio');
+        }
         if (!bgKeepAliveAudioEl) {
             bgKeepAliveAudioEl = document.createElement('audio');
             bgKeepAliveAudioEl.id = 'bgKeepAliveAudio';
@@ -2697,21 +2780,26 @@ function startBackgroundAudioKeepAlive() {
             bgKeepAliveAudioEl.playsInline = true;
             bgKeepAliveAudioEl.setAttribute('playsinline', '');
             bgKeepAliveAudioEl.setAttribute('webkit-playsinline', '');
-            bgKeepAliveAudioEl.volume = 1.0;
             bgKeepAliveAudioEl.src = createSilentWavUrl();
             bgKeepAliveAudioEl.style.display = 'none';
             document.body.appendChild(bgKeepAliveAudioEl);
         }
+        bgKeepAliveAudioEl.volume = 1.0;
         if (bgKeepAliveAudioEl.paused) {
             const p = bgKeepAliveAudioEl.play();
-            if (p && typeof p.catch === 'function') p.catch(() => {});
+            if (p && typeof p.then === 'function') {
+                playPromise = Promise.race([
+                    p.catch(() => {}),
+                    new Promise((resolve) => setTimeout(resolve, 140))
+                ]);
+            }
         }
     } catch (e) {}
 
     ensureMediaSessionHandlers();
     updateMediaSessionMetadata();
 
-    if (!speechKeepAliveTimer) {
+    if (!speechKeepAliveTimer && !isIOSDevice) {
         speechKeepAliveTimer = setInterval(() => {
             if (!isPlaying || !('speechSynthesis' in window)) return;
             if (window.speechSynthesis.paused) {
@@ -2719,6 +2807,8 @@ function startBackgroundAudioKeepAlive() {
             }
         }, 4000);
     }
+
+    return playPromise;
 }
 
 function stopBackgroundAudioKeepAlive() {
@@ -2826,8 +2916,6 @@ function changeVoice() {
     const select = document.getElementById('voiceSelect');
     selectedVoice = availableVoices.find(v => v.name === select.value);
     if (isPlaying) {
-        speechToken++;
-        window.speechSynthesis.cancel();
         readCurrentParagraph();
     }
 }
