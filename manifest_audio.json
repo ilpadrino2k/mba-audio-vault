@@ -1,0 +1,26 @@
+{
+  "name": "Lecteur Audio MBA — HEC Montréal",
+  "short_name": "Audio MBA",
+  "description": "Lecteur audio universel hors-ligne pour cours, cas, livres et PDF MBA HEC Montréal.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "./icon_audio_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon_audio_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

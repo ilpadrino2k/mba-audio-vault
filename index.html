@@ -1,0 +1,3590 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Lecteur Audio Universel — MBA HEC Montréal</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Audio MBA">
+    <meta name="theme-color" content="#090d16">
+    <link rel="manifest" href="./manifest_audio.json">
+    <link rel="apple-touch-icon" href="./icon_audio_192.png">
+    <script src="./vendor/pdf.min.js" id="pdfJsScriptTag"></script>
+    <style>
+        :root {
+            --bg-body: #090d16;
+            --bg-surface: #111827;
+            --bg-card: #1f2937;
+            --bg-hover: #283548;
+            --primary: #38bdf8;
+            --primary-hover: #0284c7;
+            --primary-glow: rgba(56, 189, 248, 0.25);
+            --word-highlight-bg: #facc15;
+            --word-highlight-color: #090d16;
+            --emerald: #10b981;
+            --gold: #f59e0b;
+            --purple: #a855f7;
+            --rose: #f43f5e;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(56, 189, 248, 0.4);
+            --font-main: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+            --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* HEADER */
+        header {
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .badge-course {
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #090d16;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            letter-spacing: 0.04em;
+            flex-shrink: 0;
+        }
+
+        .header-title-block {
+            min-width: 0;
+        }
+
+        .header-title-block h1 {
+            font-family: var(--font-display);
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-title-block p {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        @media (min-width: 640px) {
+            .header-title-block p { display: block; }
+            .header-title-block h1 { font-size: 1.12rem; }
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .btn-header {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 7px 10px;
+            border-radius: 9px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .btn-header:hover, .btn-header.active {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-primary-pill {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.28));
+            border: 1px solid rgba(56, 189, 248, 0.65);
+            color: #fff;
+            padding: 7px 11px;
+            border-radius: 9px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-drawer-toggle {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(2, 132, 199, 0.35));
+            border: 1px solid var(--primary);
+            color: #fff;
+            padding: 7px 11px;
+            border-radius: 9px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .offline-pill {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 5px 9px;
+            border-radius: 9999px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .offline-pill.ready {
+            background: rgba(16, 185, 129, 0.14);
+            border-color: rgba(16, 185, 129, 0.45);
+            color: #34d399;
+        }
+
+        .offline-pill.syncing {
+            background: rgba(245, 158, 11, 0.16);
+            border-color: rgba(245, 158, 11, 0.45);
+            color: #fbbf24;
+        }
+
+        @media (max-width: 520px) {
+            .hide-xs { display: none !important; }
+        }
+
+        /* QUICK NAV BAR (3 NIVEAUX) */
+        .mobile-quick-nav {
+            background: rgba(15, 23, 42, 0.96);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: sticky;
+            top: 53px;
+            z-index: 90;
+        }
+
+        .nav-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .nav-select {
+            width: 100%;
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: var(--font-main);
+            outline: none;
+            min-width: 0;
+        }
+
+        .nav-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* BANDEAU REPRISE RAPIDE */
+        .resume-banner {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(56, 189, 248, 0.12));
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .resume-banner.visible {
+            display: flex;
+        }
+
+        .resume-text {
+            font-size: 0.82rem;
+            color: #e2e8f0;
+            line-height: 1.35;
+        }
+
+        /* MAIN LAYOUT */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            max-width: 1440px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 14px;
+            gap: 20px;
+            padding-bottom: 195px;
+        }
+
+        /* SIDEBAR DRAWER */
+        .sidebar {
+            width: 340px;
+            flex-shrink: 0;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 14px;
+            height: fit-content;
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-title {
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--primary);
+        }
+
+        .sidebar-tools {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+
+        .sidebar-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .sidebar-tab-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .sidebar-tab-btn.active {
+            background: rgba(56, 189, 248, 0.16);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .cat-group {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            background: rgba(17, 24, 39, 0.65);
+            overflow: hidden;
+        }
+
+        .cat-header {
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cat-header-title {
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cat-folders {
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .folder-group {
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            background: rgba(31, 41, 55, 0.45);
+            overflow: hidden;
+        }
+
+        .folder-header {
+            padding: 8px 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .folder-docs {
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .doc-item {
+            padding: 8px 9px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            border: 1px solid transparent;
+            transition: all 0.12s ease;
+        }
+
+        .doc-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .doc-item.active {
+            background: rgba(56, 189, 248, 0.16);
+            border-color: rgba(56, 189, 248, 0.55);
+        }
+
+        .doc-item-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e5e7eb;
+            line-height: 1.3;
+        }
+
+        .doc-item.active .doc-item-title {
+            color: var(--primary);
+        }
+
+        .doc-item-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            gap: 6px;
+        }
+
+        .lang-pill {
+            font-family: var(--font-mono);
+            font-size: 0.64rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .lang-pill.fr { background: rgba(16, 185, 129, 0.16); color: #34d399; }
+        .lang-pill.en { background: rgba(168, 85, 247, 0.16); color: #c084fc; }
+
+        .drawer-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(4px);
+            z-index: 150;
+        }
+
+        .drawer-backdrop.active { display: block; }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(350px, 88vw);
+                max-height: 100vh;
+                z-index: 160;
+                border-radius: 0 16px 16px 0;
+                box-shadow: 5px 0 25px rgba(0, 0, 0, 0.85);
+                transform: translateX(-105%);
+            }
+            .sidebar.open { transform: translateX(0); }
+        }
+
+        /* READER ZONE */
+        .reader-zone {
+            flex: 1;
+            min-width: 0;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            padding: 20px 18px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        @media (min-width: 768px) {
+            .reader-zone { padding: 30px 36px; }
+        }
+
+        .section-hero {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hero-info h2 {
+            font-family: var(--font-display);
+            font-size: 1.32rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.25;
+        }
+
+        .hero-info p {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            margin-top: 4px;
+        }
+
+        .hero-btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .instruction-box {
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.22);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            color: #bae6fd;
+            margin-bottom: 18px;
+            line-height: 1.45;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .content-prose {
+            font-size: 1.06rem;
+            line-height: 1.82;
+            color: #e5e7eb;
+        }
+
+        .paragraph-block {
+            padding: 13px 14px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            border-left: 3px solid transparent;
+            transition: background 0.15s ease, border-color 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .paragraph-block:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .paragraph-block.active-reading {
+            background: rgba(56, 189, 248, 0.11);
+            border-left-color: var(--primary);
+        }
+
+        .paragraph-block.bookmarked {
+            border-right: 3px solid var(--gold);
+        }
+
+        .page-marker {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--gold);
+            background: rgba(245, 158, 11, 0.14);
+            padding: 1px 6px;
+            border-radius: 5px;
+            margin-right: 7px;
+            vertical-align: middle;
+        }
+
+        .word-span {
+            display: inline;
+            border-radius: 4px;
+            padding: 1px 0;
+        }
+
+        .word-span.current-word {
+            background-color: var(--word-highlight-bg);
+            color: var(--word-highlight-color);
+            font-weight: 700;
+            padding: 1px 4px;
+            box-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+        }
+
+        /* PLAYER BAR */
+        .player-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-top: 1px solid rgba(56, 189, 248, 0.35);
+            padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+            z-index: 120;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.65);
+        }
+
+        @media (min-width: 900px) {
+            .player-bar {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 24px;
+            }
+        }
+
+        .player-top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .player-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .player-thumb {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+
+        .player-info { min-width: 0; }
+        .player-info h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .player-info p {
+            font-size: 0.72rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .ctrl-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: var(--text-main);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.02rem;
+        }
+
+        .ctrl-btn:active { transform: scale(0.92); }
+
+        .play-btn-large {
+            background: var(--primary);
+            color: #090d16;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .progress-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        @media (min-width: 900px) {
+            .progress-container { max-width: 340px; margin: 0 14px; }
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 7px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 9999px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0284c7, #38bdf8);
+            width: 0%;
+            border-radius: 9999px;
+        }
+
+        .progress-time {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .player-settings {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .voice-select {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 8px;
+            border-radius: 8px;
+            font-size: 0.74rem;
+            flex: 1;
+            min-width: 130px;
+            max-width: 210px;
+            outline: none;
+        }
+
+        .voice-select option {
+            background: var(--bg-surface);
+            color: var(--text-main);
+        }
+
+        .mini-badge-btn {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 9px;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .mini-badge-btn.active {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* MODALE GESTIONNAIRE PDF & STRUCTURE */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 8, 18, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-card {
+            background: var(--bg-surface);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 18px;
+            width: 100%;
+            max-width: 780px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header h3 {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .modal-tabs {
+            display: flex;
+            gap: 8px;
+            padding: 10px 18px;
+            background: rgba(0, 0, 0, 0.22);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-tab {
+            flex: 1;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.84rem;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .modal-tab.active {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 16px 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(56, 189, 248, 0.5);
+            border-radius: 14px;
+            padding: 22px 16px;
+            text-align: center;
+            background: rgba(56, 189, 248, 0.05);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(56, 189, 248, 0.16);
+            border-color: var(--primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        @media (min-width: 600px) {
+            .form-grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+        }
+
+        .field-label {
+            display: block;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            margin-bottom: 4px;
+        }
+
+        .input-box {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 9px 11px;
+            border-radius: 9px;
+            font-size: 0.85rem;
+            font-family: var(--font-main);
+            outline: none;
+        }
+
+        .input-box:focus {
+            border-color: var(--primary);
+        }
+
+        .inline-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .checkbox-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            font-size: 0.82rem;
+        }
+
+        .checkbox-list label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .preview-box {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.75);
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preview-box.visible {
+            display: flex;
+        }
+
+        .preview-para-list {
+            max-height: 240px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .preview-para-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .preview-para-card textarea {
+            width: 100%;
+            background: rgba(9, 13, 22, 0.7);
+            color: #e2e8f0;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px;
+            font-size: 0.78rem;
+            font-family: var(--font-main);
+            resize: vertical;
+            min-height: 54px;
+        }
+
+        .struct-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .struct-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 5px 8px;
+            border-radius: 7px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.07);
+            color: #f8fafc;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-sm.danger {
+            border-color: rgba(244, 63, 94, 0.45);
+            color: #fda4af;
+            background: rgba(244, 63, 94, 0.12);
+        }
+
+        .btn-sm.primary {
+            border-color: var(--primary);
+            background: rgba(56, 189, 248, 0.2);
+            color: #fff;
+        }
+
+        /* MODE DISCRET / ROUTE */
+        .dim-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #03050a;
+            z-index: 900;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .dim-overlay.open {
+            display: flex;
+        }
+
+        .dim-big-play {
+            width: 128px;
+            height: 128px;
+            border-radius: 50%;
+            background: rgba(56, 189, 248, 0.16);
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            font-size: 3rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ÉCRAN PIN / DÉCHIFFREMENT -->
+<div id="pinOverlay" style="position:fixed;inset:0;background:#0f172a;z-index:999999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;padding:30px 24px;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.75);text-align:center;max-width:340px;width:90%;border:1px solid #334155;">
+    <div style="font-size:34px;margin-bottom:10px;">🔒</div>
+    <h2 id="pinTitle" style="color:#f8fafc;margin:0 0 6px;font-size:18px;font-weight:700;">Accès Privé MBA</h2>
+    <p id="pinSubtitle" style="color:#94a3b8;font-size:13px;margin:0 0 18px;line-height:1.4;">Entrez votre code PIN pour déverrouiller vos lectures audio hors-ligne.</p>
+    <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" style="width:136px;padding:12px;font-size:26px;text-align:center;letter-spacing:8px;border-radius:10px;border:2px solid #3b82f6;background:#0f172a;color:#f8fafc;outline:none;margin-bottom:14px;box-sizing:border-box;">
+    <label id="rememberCryptoWrap" style="display:none;align-items:center;justify-content:center;gap:8px;color:#cbd5e1;font-size:13px;margin-bottom:14px;cursor:pointer;">
+      <input type="checkbox" id="rememberCryptoChk" checked style="accent-color:#3b82f6;width:15px;height:15px;">
+      <span>Mémoriser sur cet appareil (hors-ligne)</span>
+    </label>
+    <button id="pinSubmitBtn" onclick="verifyPin()" style="background:#2563eb;color:white;border:none;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;width:100%;">Déverrouiller</button>
+    <div id="pinError" style="color:#ef4444;font-size:13px;margin-top:12px;display:none;font-weight:500;">Code PIN incorrect</div>
+  </div>
+</div>
+
+<!-- ENTÊTE -->
+<header>
+    <div class="header-left">
+        <button class="btn-drawer-toggle" onclick="toggleDrawer()" title="Ouvrir la bibliothèque">
+            ☰ <span class="hide-xs">Bibliothèque</span>
+        </button>
+        <span class="badge-course" id="headerCourseBadge">MBA AUDIO</span>
+        <div class="header-title-block">
+            <h1>Lecteur Universel</h1>
+            <p id="headerSubtitle">Architecture Découplée • 100% Hors-Ligne</p>
+        </div>
+    </div>
+    <div class="header-actions">
+        <button id="offlineStatusBtn" class="offline-pill" onclick="syncAllOffline(true)" title="Mettre tous les documents hors-ligne dans l'iPhone">
+            ⏳ Sync...
+        </button>
+        <button class="btn-primary-pill" onclick="openManagerModal('import')" title="Déposer un PDF et gérer les dossiers">
+            ➕ PDF / Dossiers
+        </button>
+    </div>
+</header>
+
+<!-- NAVIGATION RAPIDE 3 NIVEAUX -->
+<div class="mobile-quick-nav">
+    <div class="nav-grid-2">
+        <select class="nav-select" id="quickCatSelect" onchange="onQuickCatChange(this.value)"></select>
+        <select class="nav-select" id="quickFolderSelect" onchange="onQuickFolderChange(this.value)"></select>
+    </div>
+    <select class="nav-select" id="quickDocSelect" onchange="onQuickDocChange(this.value)"></select>
+</div>
+
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+
+<!-- CORPS PRINCIPAL -->
+<div class="main-layout">
+    <aside class="sidebar" id="sidebarDrawer">
+        <div class="sidebar-header">
+            <span class="sidebar-title">📚 Bibliothèque MBA</span>
+            <button class="btn-header" onclick="closeDrawer()" style="padding:4px 9px;">✕</button>
+        </div>
+        <div class="sidebar-tools">
+            <input type="search" id="sidebarSearch" class="search-input" placeholder="🔍 Filtrer un document, cours, cas..." oninput="renderSidebar()">
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab-btn active" id="tabBtnDocs" onclick="switchSidebarTab('docs')">📁 Dossiers</button>
+                <button class="sidebar-tab-btn" id="tabBtnBookmarks" onclick="switchSidebarTab('bookmarks')">🔖 Signets (<span id="bookmarkCount">0</span>)</button>
+            </div>
+            <button class="btn-sm primary" onclick="closeDrawer(); openManagerModal('structure');" style="width:100%; padding:7px;">🗂️ Modifier la structure / Ajouter PDF</button>
+        </div>
+        <div id="sessionsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div id="bookmarksContainer" style="display:none; flex-direction:column; gap:8px;"></div>
+    </aside>
+
+    <main class="reader-zone">
+        <div id="resumeBanner" class="resume-banner">
+            <div class="resume-text" id="resumeBannerText"></div>
+            <div class="inline-row">
+                <button class="btn-sm primary" onclick="resumeSavedPosition()">▶ Reprendre</button>
+                <button class="btn-sm" onclick="dismissResumeBanner()">✕</button>
+            </div>
+        </div>
+
+        <div class="section-hero">
+            <div class="hero-info">
+                <span id="heroSessionBadge" class="badge-course" style="margin-bottom:6px; display:inline-block;">Chargement</span>
+                <h2 id="heroDocTitle">Initialisation de la bibliothèque...</h2>
+                <p id="heroDocMeta">Préparation des données hors-ligne</p>
+            </div>
+            <div class="hero-btn-row">
+                <button class="btn-header active" onclick="startReadingFromStart()">🔊 Lire du début</button>
+                <button class="btn-header" onclick="prevDocument()">⏮️ Précédent</button>
+                <button class="btn-header" onclick="nextDocument()">Suivant ⏭️</button>
+                <button class="btn-header" onclick="toggleBookmarkCurrent()" id="bookmarkCurrentBtn">🔖 Signet</button>
+                <button class="btn-header" onclick="openDimMode()">🌙 Mode Route</button>
+            </div>
+        </div>
+
+        <div class="instruction-box">
+            <span>💡</span>
+            <span><strong>Gestes iPhone :</strong> <strong>1 tap</strong> sur un paragraphe démarre la lecture au début du paragraphe • <strong>2 taps rapides</strong> sur un mot sautent directement sur ce mot • <strong>Écran actif</strong> automatique pendant la lecture.</span>
+        </div>
+
+        <article class="content-prose" id="contentArticle"></article>
+    </main>
+</div>
+
+<!-- BARRE DE LECTURE FIXE -->
+<div class="player-bar">
+    <div class="player-top-row">
+        <div class="player-left">
+            <div class="player-thumb">🎙️</div>
+            <div class="player-info">
+                <h4 id="playerDocTitle">Titre du document</h4>
+                <p id="playerSessionInfo">Synthèse vocale</p>
+            </div>
+        </div>
+        <div class="player-controls">
+            <button class="ctrl-btn" onclick="prevParagraph()" title="Paragraphe précédent">⏪</button>
+            <button class="play-btn-large" id="playBtn" onclick="togglePlay()" title="Lecture / Pause">▶</button>
+            <button class="ctrl-btn" onclick="nextParagraph()" title="Paragraphe suivant">⏩</button>
+        </div>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-bar-bg" onclick="seekAudio(event)">
+            <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-time">
+            <span id="progressParaInfo">Paragraphe 1 / 1</span>
+            <span id="progressPercent">0%</span>
+        </div>
+    </div>
+
+    <div class="player-settings">
+        <select class="voice-select" id="voiceSelect" onchange="changeVoice()" title="Voix"></select>
+        <button class="mini-badge-btn" id="speedBtn" onclick="cycleSpeed()" title="Vitesse">1.0x</button>
+        <button class="mini-badge-btn" id="sleepBtn" onclick="cycleSleepTimer()" title="Minuteur de sommeil">⏱️ Off</button>
+        <span class="mini-badge-btn" id="wakeBadge" style="display:none;" title="Écran maintenu actif">☀️ Actif</span>
+    </div>
+</div>
+
+<!-- MODE ROUTE / DISCRET -->
+<div class="dim-overlay" id="dimOverlay">
+    <div style="color:#94a3b8;font-size:0.85rem;" id="dimDocTitle">Lecture en cours</div>
+    <button class="dim-big-play" id="dimPlayBtn" onclick="togglePlay()">⏸</button>
+    <div style="display:flex;gap:16px;">
+        <button class="btn-header" onclick="prevParagraph()" style="padding:12px 18px;font-size:1rem;">⏪ -1 §</button>
+        <button class="btn-header" onclick="nextParagraph()" style="padding:12px 18px;font-size:1rem;">+1 § ⏩</button>
+    </div>
+    <div style="color:#64748b;font-size:0.85rem;" id="dimProgressText">Paragraphe 1 / 1</div>
+    <button class="btn-header" onclick="closeDimMode()" style="margin-top:12px;padding:10px 20px;">Quitter le mode route</button>
+</div>
+
+<!-- MODALE GESTIONNAIRE PDF & STRUCTURE -->
+<div class="modal-overlay" id="managerModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>📥 Ajouter un PDF & Gérer la Structure</h3>
+            <button class="btn-header" onclick="closeManagerModal()">✕ Fermer</button>
+        </div>
+        <div class="modal-tabs">
+            <button class="modal-tab active" id="mTabImport" onclick="switchManagerTab('import')">📄 Déposer & Nettoyer PDF</button>
+            <button class="modal-tab" id="mTabStructure" onclick="switchManagerTab('structure')">🗂️ Structure & Offline</button>
+        </div>
+        <div class="modal-body">
+            <!-- ONGLET 1 : IMPORT & NETTOYAGE -->
+            <div id="paneImport" style="display:flex;flex-direction:column;gap:12px;">
+                <div class="drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
+                    <div style="font-size:2rem;margin-bottom:6px;">📄</div>
+                    <div style="font-weight:700;font-size:0.95rem;color:#fff;">Toucher pour choisir un PDF / TXT / MD</div>
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Fonctionne 100% hors-ligne sur iPhone (Fichiers) ou PC (glisser-déposer)</div>
+                    <input type="file" id="pdfFileInput" accept=".pdf,.txt,.md,.markdown" style="display:none" onchange="handleSelectedFile(this.files[0])">
+                </div>
+
+                <div class="form-grid-2">
+                    <div>
+                        <label class="field-label">1. Catégorie (Cours) cible</label>
+                        <div class="inline-row">
+                            <select id="importCatSelect" class="input-box" onchange="refreshImportFolderSelect()"></select>
+                            <button class="btn-sm primary" onclick="toggleInlineCreator('newCatBox')" title="Créer une nouvelle catégorie">+ Cat.</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="field-label">2. Dossier (Séance / Thème) cible</label>
+                        <div class="inline-row">
+                            <select id="importFolderSelect" class="input-box"></select>
+                            <button class="btn-sm primary" onclick="toggleInlineCreator('newFolderBox')" title="Créer un nouveau dossier">+ Dossier</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Créateur rapide de Catégorie -->
+                <div id="newCatBox" style="display:none;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:10px;">
+                    <div class="field-label">Nouvelle Catégorie</div>
+                    <div class="inline-row" style="flex-wrap:wrap;">
+                        <select id="newCatIcon" class="input-box" style="width:70px;">
+                            <option value="🎓">🎓</option>
+                            <option value="📊">📊</option>
+                            <option value="🗣️">🗣️</option>
+                            <option value="🤖">🤖</option>
+                            <option value="💼">💼</option>
+                            <option value="📘">📘</option>
+                            <option value="⭐">⭐</option>
+                        </select>
+                        <input type="text" id="newCatCode" class="input-box" placeholder="Code (ex: FINA 501)" style="width:130px;">
+                        <input type="text" id="newCatTitle" class="input-box" placeholder="Nom du cours / catégorie" style="flex:1;min-width:160px;">
+                        <button class="btn-sm primary" onclick="createCategoryFromImport()">Créer</button>
+                    </div>
+                </div>
+
+                <!-- Créateur rapide de Dossier -->
+                <div id="newFolderBox" style="display:none;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:10px;">
+                    <div class="field-label">Nouveau Dossier dans la catégorie sélectionnée</div>
+                    <div class="inline-row">
+                        <input type="text" id="newFolderTitle" class="input-box" placeholder="Ex: Séance 5 — Cas à lire">
+                        <button class="btn-sm primary" onclick="createFolderFromImport()">Créer</button>
+                    </div>
+                </div>
+
+                <div class="checkbox-list">
+                    <label><input type="checkbox" id="optCleanBanners" checked> Supprimer bandeaux HEC Montréal, HBR, copyrights et numéros de page</label>
+                    <label><input type="checkbox" id="optCleanRepeat" checked> Détecter et supprimer en-têtes/pieds de page répétés</label>
+                    <label><input type="checkbox" id="optFixHyphens" checked> Réparer les mots coupés en fin de ligne (césures PDF)</label>
+                    <label><input type="checkbox" id="optChunkParas" checked> Découper en paragraphes confortables (~165 mots pour voix iOS)</label>
+                </div>
+
+                <div id="importProgressText" style="font-size:0.82rem;color:var(--primary);display:none;"></div>
+
+                <!-- APERÇU AVANT SAUVEGARDE -->
+                <div class="preview-box" id="importPreviewBox">
+                    <div class="form-grid-2">
+                        <div>
+                            <label class="field-label">Titre du document</label>
+                            <input type="text" id="previewTitleInput" class="input-box">
+                        </div>
+                        <div>
+                            <label class="field-label">Langue de synthèse vocale</label>
+                            <select id="previewLangSelect" class="input-box">
+                                <option value="fr">Français (FR)</option>
+                                <option value="en">Anglais (EN)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="previewStats" style="font-size:0.8rem;color:#34d399;font-weight:700;"></div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">Aperçu nettoyé (vous pouvez retoucher ou supprimer un paragraphe parasite avant sauvegarde) :</div>
+                    <div class="preview-para-list" id="previewParaList"></div>
+                    <div class="inline-row" style="justify-content:flex-end;">
+                        <button class="btn-sm" onclick="reprocessPendingFile()">🔄 Réappliquer nettoyage</button>
+                        <button class="btn-primary-pill" onclick="saveImportedDocument()" style="padding:10px 16px;font-size:0.86rem;">💾 Enregistrer & Ouvrir</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ONGLET 2 : STRUCTURE & HORS-LIGNE -->
+            <div id="paneStructure" style="display:none;flex-direction:column;gap:12px;">
+                <div class="struct-card" style="background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.3);">
+                    <div style="font-weight:700;font-size:0.88rem;color:#34d399;">📦 Disponibilité 100% Hors-Ligne (Sans PC)</div>
+                    <div style="font-size:0.78rem;color:#cbd5e1;line-height:1.4;">
+                        Tous vos cours et PDF ajoutés sont stockés dans la base locale de votre navigateur (<strong>IndexedDB</strong> + <strong>Service Worker</strong>). Vous pouvez aussi exporter une copie autonome complète en 1 fichier HTML.
+                    </div>
+                    <div class="inline-row" style="flex-wrap:wrap;">
+                        <button class="btn-sm primary" onclick="syncAllOffline(true)">📲 Tout mettre hors-ligne maintenant</button>
+                        <button class="btn-sm primary" onclick="exportStandaloneHtml()">📦 Télécharger App Autonome (.html)</button>
+                        <button class="btn-sm" onclick="exportBackupJson()">💾 Sauvegarde (.json)</button>
+                        <button class="btn-sm" onclick="document.getElementById('jsonImportInput').click()">📂 Restaurer (.json)</button>
+                        <input type="file" id="jsonImportInput" accept=".json" style="display:none" onchange="importBackupJson(this.files[0])">
+                    </div>
+                </div>
+
+                <div class="struct-card">
+                    <div class="struct-row">
+                        <strong style="font-size:0.88rem;">🗂️ Éditeur de Structure (Catégories, Dossiers & Docs)</strong>
+                        <button class="btn-sm primary" onclick="promptCreateCategory()">+ Catégorie</button>
+                    </div>
+                    <div id="structureTreeContainer" style="display:flex;flex-direction:column;gap:8px;"></div>
+                </div>
+
+                <div style="text-align:right;">
+                    <button class="btn-sm danger" onclick="resetLibraryToDefault()">🔄 Réinitialiser la structure d'origine</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================================
+   1. VERROU CODE PIN / DÉCHIFFREMENT AES-256-GCM (GITHUB PAGES)
+============================================================================ */
+const ENCRYPTED_BUILD = true;
+const AES_JWK_STORAGE_KEY = 'mba_aes_jwk_v1';
+let activeCryptoKey = null;
+let libraryInitialized = false;
+
+function b64ToBytes(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
+async function deriveAesKeyFromPassword(password, saltB64, iterations = 200000) {
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+    return await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: b64ToBytes(saltB64),
+            iterations,
+            hash: 'SHA-256'
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['decrypt']
+    );
+}
+
+async function decryptAesGcmJson(encPayload, cryptoKey) {
+    const iv = b64ToBytes(encPayload.iv);
+    const cipherBytes = b64ToBytes(encPayload.data);
+    const plainBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        cipherBytes
+    );
+    return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+
+async function saveCryptoKeyToStorage(cryptoKey) {
+    try {
+        const jwk = await crypto.subtle.exportKey('jwk', cryptoKey);
+        localStorage.setItem(AES_JWK_STORAGE_KEY, JSON.stringify(jwk));
+    } catch (e) {}
+}
+
+async function loadSavedCryptoKey() {
+    try {
+        const raw = localStorage.getItem(AES_JWK_STORAGE_KEY);
+        if (!raw) return null;
+        const jwk = JSON.parse(raw);
+        return await crypto.subtle.importKey(
+            'jwk',
+            jwk,
+            { name: 'AES-GCM' },
+            false,
+            ['decrypt']
+        );
+    } catch (e) {
+        return null;
+    }
+}
+
+function configureEncryptedOverlayUI() {
+    const title = document.getElementById('pinTitle');
+    const sub = document.getElementById('pinSubtitle');
+    const inp = document.getElementById('pinInput');
+    const rem = document.getElementById('rememberCryptoWrap');
+    if (title) title.textContent = 'Coffre Chiffré MBA';
+    if (sub) sub.textContent = 'Entrez votre phrase secrète pour déchiffrer et synchroniser vos lectures hors-ligne.';
+    if (inp) {
+        inp.removeAttribute('maxlength');
+        inp.removeAttribute('pattern');
+        inp.setAttribute('inputmode', 'text');
+        inp.placeholder = 'Phrase secrète';
+        inp.style.width = '100%';
+        inp.style.fontSize = '16px';
+        inp.style.letterSpacing = 'normal';
+    }
+    if (rem) rem.style.display = 'flex';
+}
+
+async function checkSavedAuth() {
+    if (ENCRYPTED_BUILD) {
+        configureEncryptedOverlayUI();
+        const key = await loadSavedCryptoKey();
+        if (key) {
+            activeCryptoKey = key;
+            const ov = document.getElementById('pinOverlay');
+            if (ov) ov.style.display = 'none';
+            return true;
+        }
+        return false;
+    }
+    try {
+        if (localStorage.getItem('mba_pin_auth_5153') === 'granted' || sessionStorage.getItem('mba_pin_auth_5153') === 'granted') {
+            const ov = document.getElementById('pinOverlay');
+            if (ov) ov.style.display = 'none';
+        }
+    } catch (e) {}
+    return true;
+}
+
+async function verifyPin() {
+    const inp = document.getElementById('pinInput');
+    const err = document.getElementById('pinError');
+    const btn = document.getElementById('pinSubmitBtn');
+    if (!inp) return;
+
+    if (ENCRYPTED_BUILD) {
+        const pass = inp.value;
+        if (!pass) {
+            if (err) {
+                err.textContent = 'Veuillez entrer votre phrase secrète';
+                err.style.display = 'block';
+            }
+            inp.focus();
+            return;
+        }
+        if (err) err.style.display = 'none';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Déchiffrement...';
+        }
+        try {
+            const resp = await fetch('./audio_data/catalog.enc.json', { cache: 'no-cache' });
+            if (!resp.ok) throw new Error('catalog.enc.json introuvable');
+            const encCat = await resp.json();
+            const key = await deriveAesKeyFromPassword(pass, encCat.salt, encCat.iter || 200000);
+            const decryptedCat = await decryptAesGcmJson(encCat, key);
+
+            activeCryptoKey = key;
+            window.__predecryptedCatalog = decryptedCat;
+            const rem = document.getElementById('rememberCryptoChk');
+            if (rem && rem.checked) {
+                await saveCryptoKeyToStorage(key);
+            }
+            const ov = document.getElementById('pinOverlay');
+            if (ov) ov.style.display = 'none';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Déverrouiller';
+            }
+            if (!libraryInitialized) {
+                await startAppAfterAuth();
+            }
+        } catch (e) {
+            if (err) {
+                err.textContent = 'Phrase secrète incorrecte';
+                err.style.display = 'block';
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Déverrouiller';
+            }
+            inp.value = '';
+            inp.focus();
+        }
+        return;
+    }
+
+    if (inp.value === '5153') {
+        try {
+            localStorage.setItem('mba_pin_auth_5153', 'granted');
+            sessionStorage.setItem('mba_pin_auth_5153', 'granted');
+        } catch (e) {}
+        const ov = document.getElementById('pinOverlay');
+        if (ov) ov.style.display = 'none';
+    } else {
+        if (err) {
+            err.textContent = 'Code PIN incorrect';
+            err.style.display = 'block';
+        }
+        inp.value = '';
+        inp.focus();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    registerServiceWorker();
+    loadBookmarks();
+    initVoices();
+    setupDragAndDrop();
+
+    const inp = document.getElementById('pinInput');
+    if (inp) {
+        if (!ENCRYPTED_BUILD) {
+            inp.addEventListener('input', () => { if (inp.value.length === 4) verifyPin(); });
+        }
+        inp.addEventListener('keyup', (e) => { if (e.key === 'Enter') verifyPin(); });
+    }
+
+    const authorized = await checkSavedAuth();
+    if (authorized) {
+        await startAppAfterAuth();
+    } else if (inp) {
+        inp.focus();
+    }
+});
+
+/* ============================================================================
+   2. STOCKAGE PERSISTANT HORS-LIGNE (INDEXEDDB + LOCALSTORAGE)
+============================================================================ */
+const DB_NAME = 'MBAAudioVaultDB';
+const DB_VERSION = 1;
+const RESUME_KEY = 'mba_audio_resume_v2';
+const BOOKMARKS_KEY = 'mba_audio_bookmarks_v2';
+
+let dbInstance = null;
+let catalogData = { version: '2.0.0', updated_at: '', categories: [] };
+let deletedDocIds = new Set();
+
+function openVaultDB() {
+    if (dbInstance) return Promise.resolve(dbInstance);
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('meta_store')) {
+                db.createObjectStore('meta_store', { keyPath: 'key' });
+            }
+            if (!db.objectStoreNames.contains('docs_store')) {
+                db.createObjectStore('docs_store', { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = (e) => {
+            dbInstance = e.target.result;
+            resolve(dbInstance);
+        };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbGet(storeName, key) {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbPut(storeName, value) {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).put(value);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function dbDelete(storeName, key) {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function dbGetAll(storeName) {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbGetAllKeys(storeName) {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveCatalogToDB() {
+    await dbPut('meta_store', { key: 'catalog', value: catalogData });
+    tryPushCatalogToLocalServer();
+}
+
+async function saveDeletedIds() {
+    await dbPut('meta_store', { key: 'deleted_ids', value: Array.from(deletedDocIds) });
+}
+
+function getAllDocIdsInCatalog() {
+    const ids = new Set();
+    (catalogData.categories || []).forEach(c =>
+        (c.folders || []).forEach(f =>
+            (f.documents || []).forEach(d => ids.add(d.id))
+        )
+    );
+    return Array.from(ids);
+}
+
+function mergeRemoteCatalog(localCat, remoteCat) {
+    if (!localCat || !localCat.categories || !localCat.categories.length) {
+        return JSON.parse(JSON.stringify(remoteCat));
+    }
+    const merged = JSON.parse(JSON.stringify(localCat));
+    const existingCatMap = new Map(merged.categories.map(c => [c.id, c]));
+
+    for (const rCat of (remoteCat.categories || [])) {
+        if (deletedDocIds.has(`cat:${rCat.id}`)) continue;
+        let lCat = existingCatMap.get(rCat.id);
+        if (!lCat) {
+            lCat = JSON.parse(JSON.stringify(rCat));
+            merged.categories.push(lCat);
+            existingCatMap.set(lCat.id, lCat);
+            continue;
+        }
+        const existingFolderMap = new Map((lCat.folders || []).map(f => [f.id, f]));
+        for (const rFolder of (rCat.folders || [])) {
+            if (deletedDocIds.has(`folder:${rFolder.id}`)) continue;
+            let lFolder = existingFolderMap.get(rFolder.id);
+            if (!lFolder) {
+                lFolder = JSON.parse(JSON.stringify(rFolder));
+                lCat.folders.push(lFolder);
+                existingFolderMap.set(lFolder.id, lFolder);
+                continue;
+            }
+            const existingDocMap = new Map((lFolder.documents || []).map(d => [d.id, d]));
+            for (const rDoc of (rFolder.documents || [])) {
+                if (deletedDocIds.has(rDoc.id)) continue;
+                if (!existingDocMap.has(rDoc.id)) {
+                    lFolder.documents.push(JSON.parse(JSON.stringify(rDoc)));
+                } else {
+                    const lDoc = existingDocMap.get(rDoc.id);
+                    if (!lDoc.isCustom) {
+                        Object.assign(lDoc, rDoc);
+                    }
+                }
+            }
+        }
+    }
+    merged.updated_at = remoteCat.updated_at || merged.updated_at;
+    return merged;
+}
+
+function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error(`Échec chargement ${src}`));
+        document.head.appendChild(s);
+    });
+}
+
+async function fetchCatalogSource() {
+    if (ENCRYPTED_BUILD) {
+        if (window.__predecryptedCatalog) {
+            const cat = window.__predecryptedCatalog;
+            window.__predecryptedCatalog = null;
+            return cat;
+        }
+        if (!activeCryptoKey) return null;
+        try {
+            const resp = await fetch('./audio_data/catalog.enc.json', { cache: 'no-cache' });
+            if (resp.ok) {
+                const encCat = await resp.json();
+                return await decryptAesGcmJson(encCat, activeCryptoKey);
+            }
+        } catch (e) {}
+        return null;
+    }
+    if (window.PRELOADED_LIBRARY_BUNDLE && window.PRELOADED_LIBRARY_BUNDLE.catalog) {
+        return window.PRELOADED_LIBRARY_BUNDLE.catalog;
+    }
+    if (window.location.protocol !== 'file:') {
+        try {
+            const resp = await fetch('./audio_data/catalog.json', { cache: 'no-cache' });
+            if (resp.ok) return await resp.json();
+        } catch (e) {}
+    }
+    try {
+        await loadScriptOnce('./audio_data/full_bundle.js');
+        if (window.PRELOADED_LIBRARY_BUNDLE && window.PRELOADED_LIBRARY_BUNDLE.catalog) {
+            return window.PRELOADED_LIBRARY_BUNDLE.catalog;
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function updateOfflineBadge() {
+    const btn = document.getElementById('offlineStatusBtn');
+    if (!btn) return;
+    const allIds = getAllDocIdsInCatalog();
+    const cachedKeys = new Set(await dbGetAllKeys('docs_store'));
+    const readyCount = allIds.filter(id => cachedKeys.has(id)).length;
+    if (allIds.length > 0 && readyCount >= allIds.length) {
+        btn.className = 'offline-pill ready';
+        btn.textContent = `🟢 Hors-ligne (${readyCount})`;
+    } else {
+        btn.className = 'offline-pill syncing';
+        btn.textContent = `🟡 Cache (${readyCount}/${allIds.length})`;
+    }
+}
+
+async function syncAllOffline(interactive = false) {
+    const btn = document.getElementById('offlineStatusBtn');
+    if (btn) {
+        btn.className = 'offline-pill syncing';
+        btn.textContent = '⏳ Sync...';
+    }
+    try {
+        if (ENCRYPTED_BUILD) {
+            if (!activeCryptoKey) {
+                await updateOfflineBadge();
+                return;
+            }
+            let syncedFromBundle = false;
+            try {
+                const resp = await fetch('./audio_data/full_bundle.enc.json', { cache: 'no-cache' });
+                if (resp.ok) {
+                    const encBundle = await resp.json();
+                    const bundle = await decryptAesGcmJson(encBundle, activeCryptoKey);
+                    if (bundle && bundle.documents) {
+                        const db = await openVaultDB();
+                        const existingDocs = await dbGetAll('docs_store');
+                        const customIds = new Set(existingDocs.filter(d => d.isCustom).map(d => d.id));
+                        await new Promise((resolve, reject) => {
+                            const tx = db.transaction('docs_store', 'readwrite');
+                            const store = tx.objectStore('docs_store');
+                            for (const [docId, docObj] of Object.entries(bundle.documents)) {
+                                if (!customIds.has(docId) && !deletedDocIds.has(docId)) {
+                                    store.put(docObj);
+                                }
+                            }
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                        await dbPut('meta_store', { key: 'remote_synced_at', value: catalogData.updated_at || '' });
+                        syncedFromBundle = true;
+                    }
+                }
+            } catch (e) {}
+            if (!syncedFromBundle) {
+                const allIds = getAllDocIdsInCatalog();
+                const cachedKeys = new Set(await dbGetAllKeys('docs_store'));
+                for (const id of allIds) {
+                    if (!cachedKeys.has(id)) {
+                        try {
+                            const r = await fetch(`./audio_data/docs/${id}.enc.json`);
+                            if (r.ok) {
+                                const encDoc = await r.json();
+                                const d = await decryptAesGcmJson(encDoc, activeCryptoKey);
+                                await dbPut('docs_store', d);
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+            await updateOfflineBadge();
+            if (interactive) {
+                alert('✅ Toute la bibliothèque est maintenant stockée localement sur votre appareil et disponible 100% hors-ligne !');
+            }
+            return;
+        }
+
+        if (!window.PRELOADED_LIBRARY_BUNDLE) {
+            try {
+                await loadScriptOnce('./audio_data/full_bundle.js');
+            } catch (e) {}
+        }
+        if (window.PRELOADED_LIBRARY_BUNDLE && window.PRELOADED_LIBRARY_BUNDLE.documents) {
+            const db = await openVaultDB();
+            const docs = window.PRELOADED_LIBRARY_BUNDLE.documents;
+            const existingDocs = await dbGetAll('docs_store');
+            const customIds = new Set(existingDocs.filter(d => d.isCustom).map(d => d.id));
+
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction('docs_store', 'readwrite');
+                const store = tx.objectStore('docs_store');
+                for (const [docId, docObj] of Object.entries(docs)) {
+                    if (!customIds.has(docId) && !deletedDocIds.has(docId)) {
+                        store.put(docObj);
+                    }
+                }
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            await dbPut('meta_store', { key: 'remote_synced_at', value: catalogData.updated_at || '' });
+        } else if (window.location.protocol !== 'file:') {
+            const allIds = getAllDocIdsInCatalog();
+            const cachedKeys = new Set(await dbGetAllKeys('docs_store'));
+            for (const id of allIds) {
+                if (!cachedKeys.has(id)) {
+                    try {
+                        const r = await fetch(`./audio_data/docs/${id}.json`);
+                        if (r.ok) {
+                            const d = await r.json();
+                            await dbPut('docs_store', d);
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+        await updateOfflineBadge();
+        if (interactive) {
+            alert('✅ Toute la bibliothèque est maintenant stockée localement sur votre appareil et disponible 100% hors-ligne !');
+        }
+    } catch (err) {
+        console.error('Sync offline error:', err);
+        await updateOfflineBadge();
+    }
+}
+
+async function loadDocumentContent(docMeta) {
+    const cached = await dbGet('docs_store', docMeta.id);
+    if (cached && cached.paragraphs && cached.paragraphs.length) {
+        return cached;
+    }
+    if (ENCRYPTED_BUILD) {
+        if (activeCryptoKey && docMeta.id) {
+            const resp = await fetch(`./audio_data/docs/${docMeta.id}.enc.json`);
+            if (resp.ok) {
+                const encDoc = await resp.json();
+                const docObj = await decryptAesGcmJson(encDoc, activeCryptoKey);
+                await dbPut('docs_store', docObj);
+                updateOfflineBadge();
+                return docObj;
+            }
+        }
+        throw new Error('Document introuvable hors-ligne. Connectez-vous une fois pour synchroniser.');
+    }
+    if (window.PRELOADED_LIBRARY_BUNDLE && window.PRELOADED_LIBRARY_BUNDLE.documents && window.PRELOADED_LIBRARY_BUNDLE.documents[docMeta.id]) {
+        const docObj = window.PRELOADED_LIBRARY_BUNDLE.documents[docMeta.id];
+        await dbPut('docs_store', docObj);
+        updateOfflineBadge();
+        return docObj;
+    }
+    if (docMeta.data_file && window.location.protocol !== 'file:') {
+        const resp = await fetch(`./${docMeta.data_file}`);
+        if (resp.ok) {
+            const docObj = await resp.json();
+            await dbPut('docs_store', docObj);
+            updateOfflineBadge();
+            return docObj;
+        }
+    }
+    throw new Error('Document introuvable hors-ligne. Connectez-vous une fois pour synchroniser.');
+}
+
+/* ============================================================================
+   3. ÉTAT DU LECTEUR & INITIALISATION
+============================================================================ */
+let currentCatIdx = 0;
+let currentFolderIdx = 0;
+let currentDocIdx = 0;
+let activeDocument = null;
+let currentParagraphIdx = 0;
+let currentWordCharOffset = 0;
+let isPlaying = false;
+let currentSpeed = 1.0;
+const speeds = [0.85, 1.0, 1.15, 1.25, 1.5, 1.75, 2.0];
+
+let availableVoices = [];
+let selectedVoice = null;
+let currentUtterance = null;
+let speechToken = 0;
+
+let lastClickedParaIdx = -1;
+let lastClickTime = 0;
+let lastAutoScrollTime = 0;
+
+let wakeLockSentinel = null;
+let sleepModeMinutes = 0; // 0 = off, >0 = mins, -1 = end of doc
+let sleepTimerDeadline = 0;
+let sleepIntervalId = null;
+
+let activeSidebarTab = 'docs';
+let bookmarks = [];
+let pendingImportDoc = null;
+
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        navigator.serviceWorker.register('./sw_audio.js').catch(() => {});
+    }
+}
+
+async function startAppAfterAuth() {
+    if (libraryInitialized) return;
+    libraryInitialized = true;
+    await initLibrary();
+}
+
+async function initLibrary() {
+    try {
+        const delRec = await dbGet('meta_store', 'deleted_ids');
+        if (delRec && Array.isArray(delRec.value)) {
+            deletedDocIds = new Set(delRec.value);
+        }
+
+        const localCatRec = await dbGet('meta_store', 'catalog');
+        const localCat = localCatRec ? localCatRec.value : null;
+        const remoteCat = await fetchCatalogSource();
+
+        if (remoteCat) {
+            catalogData = mergeRemoteCatalog(localCat, remoteCat);
+            await dbPut('meta_store', { key: 'catalog', value: catalogData });
+        } else if (localCat) {
+            catalogData = localCat;
+        }
+
+        const syncedRec = await dbGet('meta_store', 'remote_synced_at');
+        const needRefresh = !syncedRec || (remoteCat && syncedRec.value !== remoteCat.updated_at);
+
+        initQuickSelects();
+        renderSidebar();
+
+        const restored = restoreSavedPositionMetadata();
+        if (restored) {
+            await loadDocument(restored.catIdx, restored.folderIdx, restored.docIdx, restored.paragraphIdx, false);
+            showResumeBanner(restored);
+        } else if (catalogData.categories.length) {
+            await loadDocument(0, 0, 0, 0, false);
+        }
+
+        await updateOfflineBadge();
+        if (needRefresh || (await dbGetAllKeys('docs_store')).length < getAllDocIdsInCatalog().length) {
+            syncAllOffline(false);
+        }
+    } catch (err) {
+        console.error('Init error:', err);
+        document.getElementById('heroDocTitle').innerText = 'Erreur de chargement';
+        document.getElementById('heroDocMeta').innerText = err.message;
+    }
+}
+
+/* ============================================================================
+   4. NAVIGATION À 3 NIVEAUX & TIROIR
+============================================================================ */
+function findIndicesByIds(catId, folderId, docId) {
+    for (let ci = 0; ci < catalogData.categories.length; ci++) {
+        const c = catalogData.categories[ci];
+        if (catId && c.id !== catId) continue;
+        for (let fi = 0; fi < (c.folders || []).length; fi++) {
+            const f = c.folders[fi];
+            if (folderId && f.id !== folderId) continue;
+            for (let di = 0; di < (f.documents || []).length; di++) {
+                if (f.documents[di].id === docId) {
+                    return { catIdx: ci, folderIdx: fi, docIdx: di };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function initQuickSelects() {
+    const catSel = document.getElementById('quickCatSelect');
+    catSel.innerHTML = '';
+    catalogData.categories.forEach((c, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `${c.icon || '📚'} ${c.code} — ${c.title}`;
+        catSel.appendChild(opt);
+    });
+    if (currentCatIdx >= catalogData.categories.length) currentCatIdx = 0;
+    catSel.value = currentCatIdx;
+    updateQuickFolderSelect(currentCatIdx);
+}
+
+function updateQuickFolderSelect(cIdx) {
+    const folderSel = document.getElementById('quickFolderSelect');
+    folderSel.innerHTML = '';
+    const cat = catalogData.categories[cIdx];
+    if (!cat || !cat.folders.length) return;
+    cat.folders.forEach((f, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `📁 ${f.title} (${f.documents.length})`;
+        folderSel.appendChild(opt);
+    });
+    if (currentFolderIdx >= cat.folders.length) currentFolderIdx = 0;
+    folderSel.value = currentFolderIdx;
+    updateQuickDocSelect(cIdx, currentFolderIdx);
+}
+
+function updateQuickDocSelect(cIdx, fIdx) {
+    const docSel = document.getElementById('quickDocSelect');
+    docSel.innerHTML = '';
+    const cat = catalogData.categories[cIdx];
+    const folder = cat && cat.folders[fIdx];
+    if (!folder) return;
+    folder.documents.forEach((d, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `📄 ${d.title} (${d.word_count} mots • ~${d.est_minutes}m)`;
+        docSel.appendChild(opt);
+    });
+    if (currentDocIdx >= folder.documents.length) currentDocIdx = 0;
+    docSel.value = currentDocIdx;
+}
+
+function onQuickCatChange(cIdx) {
+    cIdx = parseInt(cIdx, 10);
+    currentCatIdx = cIdx;
+    currentFolderIdx = 0;
+    currentDocIdx = 0;
+    updateQuickFolderSelect(cIdx);
+    selectDocument(cIdx, 0, 0);
+}
+
+function onQuickFolderChange(fIdx) {
+    fIdx = parseInt(fIdx, 10);
+    currentFolderIdx = fIdx;
+    currentDocIdx = 0;
+    updateQuickDocSelect(currentCatIdx, fIdx);
+    selectDocument(currentCatIdx, fIdx, 0);
+}
+
+function onQuickDocChange(dIdx) {
+    dIdx = parseInt(dIdx, 10);
+    selectDocument(currentCatIdx, currentFolderIdx, dIdx);
+}
+
+function toggleDrawer() {
+    document.getElementById('sidebarDrawer').classList.toggle('open');
+    document.getElementById('drawerBackdrop').classList.toggle('active');
+}
+
+function closeDrawer() {
+    document.getElementById('sidebarDrawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('active');
+}
+
+function switchSidebarTab(tab) {
+    activeSidebarTab = tab;
+    document.getElementById('tabBtnDocs').classList.toggle('active', tab === 'docs');
+    document.getElementById('tabBtnBookmarks').classList.toggle('active', tab === 'bookmarks');
+    document.getElementById('sessionsContainer').style.display = tab === 'docs' ? 'flex' : 'none';
+    document.getElementById('bookmarksContainer').style.display = tab === 'bookmarks' ? 'flex' : 'none';
+    if (tab === 'bookmarks') renderBookmarksSidebar();
+}
+
+function renderSidebar() {
+    const container = document.getElementById('sessionsContainer');
+    const query = (document.getElementById('sidebarSearch')?.value || '').trim().toLowerCase();
+    container.innerHTML = '';
+
+    catalogData.categories.forEach((cat, cIdx) => {
+        const catMatches = !query || `${cat.code} ${cat.title}`.toLowerCase().includes(query);
+        const foldersWrap = document.createElement('div');
+        foldersWrap.className = 'cat-folders';
+        let visibleDocsInCat = 0;
+
+        (cat.folders || []).forEach((folder, fIdx) => {
+            const folderMatches = catMatches || folder.title.toLowerCase().includes(query);
+            const matchingDocs = (folder.documents || []).map((d, dIdx) => ({ d, dIdx }))
+                .filter(({ d }) => folderMatches || d.title.toLowerCase().includes(query));
+
+            if (query && matchingDocs.length === 0) return;
+            visibleDocsInCat += matchingDocs.length;
+
+            const fGroup = document.createElement('div');
+            fGroup.className = 'folder-group';
+            const isOpenFolder = !!query || (cIdx === currentCatIdx && fIdx === currentFolderIdx);
+
+            const fHeader = document.createElement('div');
+            fHeader.className = 'folder-header';
+            fHeader.innerHTML = `<span>📁 ${escapeHtml(folder.title)}</span><span style="color:var(--text-muted);font-size:0.72rem;">${matchingDocs.length}</span>`;
+
+            const fDocsList = document.createElement('div');
+            fDocsList.className = 'folder-docs';
+            fDocsList.style.display = isOpenFolder ? 'flex' : 'none';
+
+            fHeader.onclick = () => {
+                fDocsList.style.display = fDocsList.style.display === 'none' ? 'flex' : 'none';
+            };
+
+            matchingDocs.forEach(({ d, dIdx }) => {
+                const isActive = cIdx === currentCatIdx && fIdx === currentFolderIdx && dIdx === currentDocIdx;
+                const item = document.createElement('div');
+                item.className = `doc-item ${isActive ? 'active' : ''}`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    selectDocument(cIdx, fIdx, dIdx);
+                    closeDrawer();
+                };
+                item.innerHTML = `
+                    <div class="doc-item-title">${escapeHtml(d.title)}</div>
+                    <div class="doc-item-meta">
+                        <span>${d.word_count} mots (~${d.est_minutes} min)</span>
+                        <span class="lang-pill ${d.lang}">${d.lang}</span>
+                    </div>`;
+                fDocsList.appendChild(item);
+            });
+
+            fGroup.appendChild(fHeader);
+            fGroup.appendChild(fDocsList);
+            foldersWrap.appendChild(fGroup);
+        });
+
+        if (query && visibleDocsInCat === 0) return;
+
+        const cGroup = document.createElement('div');
+        cGroup.className = 'cat-group';
+        const isCatOpen = !!query || cIdx === currentCatIdx;
+        foldersWrap.style.display = isCatOpen ? 'flex' : 'none';
+
+        const cHeader = document.createElement('div');
+        cHeader.className = 'cat-header';
+        cHeader.innerHTML = `
+            <span class="cat-header-title">${escapeHtml(cat.icon || '📚')} ${escapeHtml(cat.code)}</span>
+            <span style="font-size:0.72rem;color:var(--primary);">${cat.folders.length} dossiers</span>`;
+        cHeader.onclick = () => {
+            foldersWrap.style.display = foldersWrap.style.display === 'none' ? 'flex' : 'none';
+        };
+
+        cGroup.appendChild(cHeader);
+        cGroup.appendChild(foldersWrap);
+        container.appendChild(cGroup);
+    });
+}
+
+/* ============================================================================
+   5. CHARGEMENT DOCUMENT & RENDU DOM PARESSEUX (LAZY WORD-SPAN)
+============================================================================ */
+async function selectDocument(cIdx, fIdx, dIdx) {
+    stopAudio();
+    await loadDocument(cIdx, fIdx, dIdx, 0, true);
+}
+
+async function loadDocument(cIdx, fIdx, dIdx, startParaIdx = 0, scrollToTop = true) {
+    const cat = catalogData.categories[cIdx];
+    const folder = cat && cat.folders[fIdx];
+    const docMeta = folder && folder.documents[dIdx];
+    if (!docMeta) return;
+
+    currentCatIdx = cIdx;
+    currentFolderIdx = fIdx;
+    currentDocIdx = dIdx;
+
+    document.getElementById('quickCatSelect').value = cIdx;
+    updateQuickFolderSelect(cIdx);
+    document.getElementById('quickFolderSelect').value = fIdx;
+    updateQuickDocSelect(cIdx, fIdx);
+    document.getElementById('quickDocSelect').value = dIdx;
+
+    document.getElementById('headerCourseBadge').innerText = cat.code;
+    document.getElementById('heroSessionBadge').innerText = `${cat.code} • ${folder.title}`;
+    document.getElementById('heroDocTitle').innerText = docMeta.title;
+    document.getElementById('heroDocMeta').innerText = `${docMeta.paragraphs_count} paragraphes • ${docMeta.word_count} mots • ~${docMeta.est_minutes} min [${docMeta.lang.toUpperCase()}]`;
+    document.getElementById('playerDocTitle').innerText = docMeta.title;
+    document.getElementById('playerSessionInfo').innerText = `${cat.code} • ${docMeta.word_count} mots`;
+
+    const article = document.getElementById('contentArticle');
+    article.innerHTML = '<div style="padding:24px;color:var(--text-muted);">⏳ Chargement du document...</div>';
+
+    try {
+        activeDocument = await loadDocumentContent(docMeta);
+    } catch (err) {
+        article.innerHTML = `<div style="padding:24px;color:#fda4af;">⚠️ ${escapeHtml(err.message)}</div>`;
+        return;
+    }
+
+    article.innerHTML = '';
+    const bookmarkedSet = new Set(bookmarks.filter(b => b.docId === activeDocument.id).map(b => b.paragraphIdx));
+
+    activeDocument.paragraphs.forEach((p, pIdx) => {
+        const block = document.createElement('div');
+        block.className = 'paragraph-block' + (bookmarkedSet.has(pIdx) ? ' bookmarked' : '');
+        block.id = `p-${pIdx}`;
+        block.dataset.pIdx = pIdx;
+        renderPlainParagraph(block, p);
+        block.onclick = (e) => handleParagraphClick(e, pIdx);
+        article.appendChild(block);
+    });
+
+    currentParagraphIdx = Math.max(0, Math.min(startParaIdx, activeDocument.paragraphs.length - 1));
+    currentWordCharOffset = 0;
+    hydrateParagraphWindow(currentParagraphIdx);
+    updateProgress();
+    highlightActiveParagraph(currentParagraphIdx, !scrollToTop);
+    selectVoiceForLanguage(activeDocument.lang);
+    renderSidebar();
+    saveResumePosition();
+
+    if (scrollToTop) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (currentParagraphIdx > 0) {
+        const target = document.getElementById(`p-${currentParagraphIdx}`);
+        if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    }
+}
+
+function renderPlainParagraph(block, p) {
+    block.dataset.hydrated = '0';
+    block.innerHTML = `<span class="page-marker">[p. ${p.page}]</span>`;
+    block.appendChild(document.createTextNode(p.clean_text));
+}
+
+function hydrateParagraphWords(pIdx) {
+    if (!activeDocument || pIdx < 0 || pIdx >= activeDocument.paragraphs.length) return;
+    const block = document.getElementById(`p-${pIdx}`);
+    if (!block || block.dataset.hydrated === '1') return;
+
+    const p = activeDocument.paragraphs[pIdx];
+    const text = p.clean_text;
+    let wordsHtml = `<span class="page-marker">[p. ${p.page}]</span>`;
+    const regex = /(\S+|\s+)/g;
+    let match;
+    let charPos = 0;
+
+    while ((match = regex.exec(text)) !== null) {
+        const token = match[0];
+        if (/^\s+$/.test(token)) {
+            wordsHtml += token;
+        } else {
+            wordsHtml += `<span class="word-span" data-char-offset="${charPos}" data-p-idx="${pIdx}">${escapeHtml(token)}</span>`;
+        }
+        charPos += token.length;
+    }
+    block.innerHTML = wordsHtml;
+    block.dataset.hydrated = '1';
+}
+
+function hydrateParagraphWindow(centerIdx) {
+    if (!activeDocument) return;
+    document.querySelectorAll('.paragraph-block[data-hydrated="1"]').forEach(el => {
+        const idx = parseInt(el.dataset.pIdx, 10);
+        if (Math.abs(idx - centerIdx) > 2) {
+            renderPlainParagraph(el, activeDocument.paragraphs[idx]);
+        }
+    });
+    for (let i = Math.max(0, centerIdx - 1); i <= Math.min(activeDocument.paragraphs.length - 1, centerIdx + 1); i++) {
+        hydrateParagraphWords(i);
+    }
+}
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/* ============================================================================
+   6. LECTURE VOCALE WEB SPEECH + KARAOKÉ + WAKE LOCK + TIMER
+============================================================================ */
+function handleParagraphClick(e, pIdx) {
+    const now = Date.now();
+    const targetWordSpan = e.target.closest('.word-span');
+    const wordOffset = targetWordSpan ? parseInt(targetWordSpan.dataset.charOffset || '0', 10) : 0;
+    const isSamePara = (lastClickedParaIdx === pIdx);
+    const timeDiff = now - lastClickTime;
+
+    hydrateParagraphWindow(pIdx);
+
+    if (isSamePara && timeDiff < 600 && targetWordSpan) {
+        e.stopPropagation();
+        playFromWord(pIdx, wordOffset);
+        lastClickTime = 0;
+        lastClickedParaIdx = -1;
+    } else {
+        lastClickTime = now;
+        lastClickedParaIdx = pIdx;
+        playFromParagraph(pIdx);
+    }
+}
+
+function playFromParagraph(pIdx) {
+    stopAudio();
+    currentParagraphIdx = pIdx;
+    currentWordCharOffset = 0;
+    isPlaying = true;
+    updatePlayBtn(true);
+    hydrateParagraphWindow(pIdx);
+    highlightActiveParagraph(pIdx, true);
+    requestWakeLock();
+    readCurrentParagraph();
+}
+
+function playFromWord(pIdx, charOffset) {
+    stopAudio();
+    currentParagraphIdx = pIdx;
+    currentWordCharOffset = charOffset;
+    isPlaying = true;
+    updatePlayBtn(true);
+    hydrateParagraphWindow(pIdx);
+    highlightActiveParagraph(pIdx, true);
+    requestWakeLock();
+    readCurrentParagraph();
+}
+
+function startReadingFromStart() {
+    playFromParagraph(0);
+}
+
+function readCurrentParagraph() {
+    if (!('speechSynthesis' in window) || !activeDocument) return;
+
+    if (currentParagraphIdx >= activeDocument.paragraphs.length) {
+        if (sleepModeMinutes === -1) {
+            stopAudio();
+            sleepModeMinutes = 0;
+            updateSleepBtnLabel();
+            return;
+        }
+        nextDocument(true);
+        return;
+    }
+
+    const pData = activeDocument.paragraphs[currentParagraphIdx];
+    const startingOffset = currentWordCharOffset;
+    const textToSpeak = startingOffset > 0 ? pData.clean_text.substring(startingOffset) : pData.clean_text;
+
+    const myToken = ++speechToken;
+    currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+    if (selectedVoice) currentUtterance.voice = selectedVoice;
+    currentUtterance.lang = activeDocument.lang === 'en' ? 'en-US' : 'fr-CA';
+    currentUtterance.rate = currentSpeed;
+
+    currentUtterance.onstart = () => {
+        if (myToken !== speechToken) return;
+        hydrateParagraphWindow(currentParagraphIdx);
+        highlightActiveParagraph(currentParagraphIdx, true);
+        updateProgress();
+        saveResumePosition();
+    };
+
+    currentUtterance.onboundary = (event) => {
+        if (myToken !== speechToken) return;
+        if (event.name === 'word' || !event.name) {
+            highlightCurrentWord(currentParagraphIdx, startingOffset + event.charIndex);
+        }
+    };
+
+    currentUtterance.onend = () => {
+        if (myToken !== speechToken) return;
+        clearWordHighlights();
+        currentWordCharOffset = 0;
+        if (isPlaying) {
+            currentParagraphIdx++;
+            readCurrentParagraph();
+        }
+    };
+
+    currentUtterance.onerror = () => {
+        if (myToken !== speechToken) return;
+        clearWordHighlights();
+        stopAudio();
+    };
+
+    window.speechSynthesis.speak(currentUtterance);
+}
+
+function highlightCurrentWord(pIdx, charIndex) {
+    const block = document.getElementById(`p-${pIdx}`);
+    if (!block) return;
+    if (block.dataset.hydrated !== '1') hydrateParagraphWords(pIdx);
+
+    const wordSpans = block.querySelectorAll('.word-span');
+    let matchedSpan = null;
+    for (let i = 0; i < wordSpans.length; i++) {
+        const span = wordSpans[i];
+        const offset = parseInt(span.dataset.charOffset, 10);
+        const nextOffset = (i < wordSpans.length - 1) ? parseInt(wordSpans[i + 1].dataset.charOffset, 10) : 9999999;
+        if (charIndex >= offset && charIndex < nextOffset) {
+            matchedSpan = span;
+            break;
+        }
+    }
+
+    if (matchedSpan) {
+        wordSpans.forEach(s => s.classList.remove('current-word'));
+        matchedSpan.classList.add('current-word');
+
+        const now = Date.now();
+        if (now - lastAutoScrollTime > 380) {
+            const rect = matchedSpan.getBoundingClientRect();
+            const vh = window.innerHeight;
+            if (rect.top < vh * 0.24 || rect.bottom > vh * 0.64) {
+                window.scrollTo({
+                    top: Math.max(0, window.pageYOffset + rect.top - vh * 0.36),
+                    behavior: 'smooth'
+                });
+                lastAutoScrollTime = now;
+            }
+        }
+    }
+}
+
+function clearWordHighlights() {
+    document.querySelectorAll('.word-span.current-word').forEach(s => s.classList.remove('current-word'));
+}
+
+function togglePlay() {
+    if (isPlaying) pauseAudio();
+    else resumeAudio();
+}
+
+function resumeAudio() {
+    if (!('speechSynthesis' in window)) return;
+    if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        isPlaying = true;
+        updatePlayBtn(true);
+        requestWakeLock();
+    } else {
+        isPlaying = true;
+        updatePlayBtn(true);
+        requestWakeLock();
+        readCurrentParagraph();
+    }
+}
+
+function pauseAudio() {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.pause();
+    isPlaying = false;
+    updatePlayBtn(false);
+    releaseWakeLock();
+    saveResumePosition();
+}
+
+function stopAudio() {
+    speechToken++;
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+    isPlaying = false;
+    updatePlayBtn(false);
+    clearWordHighlights();
+    releaseWakeLock();
+}
+
+function prevParagraph() {
+    if (currentParagraphIdx > 0) playFromParagraph(currentParagraphIdx - 1);
+}
+
+function nextParagraph() {
+    if (activeDocument && currentParagraphIdx < activeDocument.paragraphs.length - 1) {
+        playFromParagraph(currentParagraphIdx + 1);
+    }
+}
+
+async function prevDocument(autoPlay = true) {
+    const cat = catalogData.categories[currentCatIdx];
+    const folder = cat.folders[currentFolderIdx];
+    if (currentDocIdx > 0) {
+        await selectDocument(currentCatIdx, currentFolderIdx, currentDocIdx - 1);
+    } else if (currentFolderIdx > 0) {
+        const prevF = cat.folders[currentFolderIdx - 1];
+        await selectDocument(currentCatIdx, currentFolderIdx - 1, Math.max(0, prevF.documents.length - 1));
+    } else if (currentCatIdx > 0) {
+        const prevC = catalogData.categories[currentCatIdx - 1];
+        const lastF = Math.max(0, prevC.folders.length - 1);
+        const lastD = Math.max(0, (prevC.folders[lastF]?.documents.length || 1) - 1);
+        await selectDocument(currentCatIdx - 1, lastF, lastD);
+    } else {
+        return;
+    }
+    if (autoPlay) playFromParagraph(0);
+}
+
+async function nextDocument(autoPlay = true) {
+    const cat = catalogData.categories[currentCatIdx];
+    const folder = cat.folders[currentFolderIdx];
+    if (currentDocIdx < folder.documents.length - 1) {
+        await selectDocument(currentCatIdx, currentFolderIdx, currentDocIdx + 1);
+    } else if (currentFolderIdx < cat.folders.length - 1) {
+        await selectDocument(currentCatIdx, currentFolderIdx + 1, 0);
+    } else if (currentCatIdx < catalogData.categories.length - 1) {
+        await selectDocument(currentCatIdx + 1, 0, 0);
+    } else {
+        stopAudio();
+        return;
+    }
+    if (autoPlay) playFromParagraph(0);
+}
+
+function seekAudio(e) {
+    if (!activeDocument) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetP = Math.min(Math.floor(pos * activeDocument.paragraphs.length), activeDocument.paragraphs.length - 1);
+    playFromParagraph(targetP);
+}
+
+function updateProgress() {
+    if (!activeDocument) return;
+    const total = activeDocument.paragraphs.length || 1;
+    const pct = Math.round(((currentParagraphIdx + 1) / total) * 100);
+    document.getElementById('progressFill').style.width = `${pct}%`;
+    document.getElementById('progressPercent').innerText = `${pct}%`;
+    const label = `Paragraphe ${currentParagraphIdx + 1} / ${total}`;
+    document.getElementById('progressParaInfo').innerText = label;
+    document.getElementById('dimProgressText').innerText = `${label} (${pct}%)`;
+    document.getElementById('dimDocTitle').innerText = activeDocument.title;
+}
+
+function updatePlayBtn(playing) {
+    document.getElementById('playBtn').innerText = playing ? '⏸' : '▶';
+    document.getElementById('dimPlayBtn').innerText = playing ? '⏸' : '▶';
+}
+
+function highlightActiveParagraph(index, autoScroll = false) {
+    document.querySelectorAll('.paragraph-block.active-reading').forEach(el => el.classList.remove('active-reading'));
+    const active = document.getElementById(`p-${index}`);
+    if (active) {
+        active.classList.add('active-reading');
+        if (autoScroll) active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function cycleSpeed() {
+    let idx = speeds.indexOf(currentSpeed);
+    idx = (idx + 1) % speeds.length;
+    currentSpeed = speeds[idx];
+    document.getElementById('speedBtn').innerText = `${currentSpeed}x`;
+    saveResumePosition();
+    if (isPlaying) {
+        speechToken++;
+        window.speechSynthesis.cancel();
+        readCurrentParagraph();
+    }
+}
+
+/* WAKE LOCK API (ANTI-VEILLE IPHONE) */
+async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        document.getElementById('wakeBadge').style.display = 'inline-block';
+        wakeLockSentinel.addEventListener('release', () => {
+            document.getElementById('wakeBadge').style.display = 'none';
+        });
+    } catch (e) {}
+}
+
+function releaseWakeLock() {
+    if (wakeLockSentinel) {
+        wakeLockSentinel.release().catch(() => {});
+        wakeLockSentinel = null;
+    }
+    document.getElementById('wakeBadge').style.display = 'none';
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isPlaying) {
+        requestWakeLock();
+    }
+});
+
+/* MINUTEUR DE SOMMEIL */
+function cycleSleepTimer() {
+    const cycle = [0, 15, 30, 45, 60, -1];
+    const nextIdx = (cycle.indexOf(sleepModeMinutes) + 1) % cycle.length;
+    sleepModeMinutes = cycle[nextIdx];
+    clearInterval(sleepIntervalId);
+    sleepIntervalId = null;
+
+    if (sleepModeMinutes > 0) {
+        sleepTimerDeadline = Date.now() + sleepModeMinutes * 60000;
+        sleepIntervalId = setInterval(() => {
+            const rem = sleepTimerDeadline - Date.now();
+            if (rem <= 0) {
+                clearInterval(sleepIntervalId);
+                sleepModeMinutes = 0;
+                pauseAudio();
+                updateSleepBtnLabel();
+            } else {
+                updateSleepBtnLabel(rem);
+            }
+        }, 1000);
+    }
+    updateSleepBtnLabel();
+}
+
+function updateSleepBtnLabel(remMs = null) {
+    const btn = document.getElementById('sleepBtn');
+    if (sleepModeMinutes === 0) {
+        btn.innerText = '⏱️ Off';
+        btn.classList.remove('active');
+    } else if (sleepModeMinutes === -1) {
+        btn.innerText = '⏱️ Fin doc';
+        btn.classList.add('active');
+    } else {
+        const ms = remMs !== null ? remMs : sleepModeMinutes * 60000;
+        const mins = Math.floor(ms / 60000);
+        const secs = Math.floor((ms % 60000) / 1000);
+        btn.innerText = `🌙 ${mins}:${String(secs).padStart(2, '0')}`;
+        btn.classList.add('active');
+    }
+}
+
+function openDimMode() { document.getElementById('dimOverlay').classList.add('open'); }
+function closeDimMode() { document.getElementById('dimOverlay').classList.remove('open'); }
+
+/* VOIX */
+function initVoices() {
+    if (!('speechSynthesis' in window)) return;
+    function populate() {
+        availableVoices = window.speechSynthesis.getVoices();
+        const select = document.getElementById('voiceSelect');
+        select.innerHTML = '';
+        const filtered = availableVoices.filter(v => v.lang.startsWith('fr') || v.lang.startsWith('en'));
+        (filtered.length ? filtered : availableVoices).forEach((v) => {
+            const opt = document.createElement('option');
+            opt.value = v.name;
+            opt.textContent = `${v.name.replace('Microsoft ', '').replace('Online (Natural)', 'Natural')} (${v.lang})`;
+            select.appendChild(opt);
+        });
+        if (activeDocument) selectVoiceForLanguage(activeDocument.lang);
+    }
+    populate();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populate;
+    }
+}
+
+function selectVoiceForLanguage(lang) {
+    if (!availableVoices.length) return;
+    const select = document.getElementById('voiceSelect');
+    let best = availableVoices.find(v => v.lang.startsWith(lang) && /Natural|Amelie|Thomas|Audrey|Aurelie|Siri|Denise|Henri|Samantha|Daniel|Google/i.test(v.name));
+    if (!best) best = availableVoices.find(v => v.lang.startsWith(lang));
+    if (!best) best = availableVoices[0];
+    if (best) {
+        selectedVoice = best;
+        select.value = best.name;
+    }
+}
+
+function changeVoice() {
+    const select = document.getElementById('voiceSelect');
+    selectedVoice = availableVoices.find(v => v.name === select.value);
+    if (isPlaying) {
+        speechToken++;
+        window.speechSynthesis.cancel();
+        readCurrentParagraph();
+    }
+}
+
+/* ============================================================================
+   7. REPRISE AUTOMATIQUE & SIGNETS (LOCALSTORAGE)
+============================================================================ */
+function saveResumePosition() {
+    if (!activeDocument) return;
+    const cat = catalogData.categories[currentCatIdx];
+    const folder = cat && cat.folders[currentFolderIdx];
+    if (!cat || !folder) return;
+    const payload = {
+        catId: cat.id,
+        folderId: folder.id,
+        docId: activeDocument.id,
+        docTitle: activeDocument.title,
+        paragraphIdx: currentParagraphIdx,
+        totalParas: activeDocument.paragraphs.length,
+        speed: currentSpeed,
+        updatedAt: Date.now()
+    };
+    try { localStorage.setItem(RESUME_KEY, JSON.stringify(payload)); } catch (e) {}
+}
+
+function restoreSavedPositionMetadata() {
+    try {
+        const raw = localStorage.getItem(RESUME_KEY);
+        if (!raw) return null;
+        const saved = JSON.parse(raw);
+        if (saved.speed && speeds.includes(saved.speed)) {
+            currentSpeed = saved.speed;
+            document.getElementById('speedBtn').innerText = `${currentSpeed}x`;
+        }
+        const indices = findIndicesByIds(saved.catId, saved.folderId, saved.docId) || findIndicesByIds(null, null, saved.docId);
+        if (!indices) return null;
+        return { ...indices, ...saved };
+    } catch (e) {
+        return null;
+    }
+}
+
+function showResumeBanner(saved) {
+    if (!saved || saved.paragraphIdx <= 0) return;
+    const pct = Math.round(((saved.paragraphIdx + 1) / (saved.totalParas || 1)) * 100);
+    document.getElementById('resumeBannerText').innerHTML =
+        `📍 <strong>Reprise auto :</strong> ${escapeHtml(saved.docTitle)} — Paragraphe ${saved.paragraphIdx + 1}/${saved.totalParas} (${pct}%)`;
+    document.getElementById('resumeBanner').classList.add('visible');
+}
+
+function dismissResumeBanner() {
+    document.getElementById('resumeBanner').classList.remove('visible');
+}
+
+function resumeSavedPosition() {
+    dismissResumeBanner();
+    playFromParagraph(currentParagraphIdx);
+}
+
+function loadBookmarks() {
+    try {
+        bookmarks = JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]');
+    } catch (e) {
+        bookmarks = [];
+    }
+    updateBookmarkBadge();
+}
+
+function saveBookmarks() {
+    try { localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks)); } catch (e) {}
+    updateBookmarkBadge();
+}
+
+function updateBookmarkBadge() {
+    const el = document.getElementById('bookmarkCount');
+    if (el) el.innerText = bookmarks.length;
+}
+
+function toggleBookmarkCurrent() {
+    if (!activeDocument) return;
+    const pIdx = currentParagraphIdx;
+    const existingIdx = bookmarks.findIndex(b => b.docId === activeDocument.id && b.paragraphIdx === pIdx);
+    const block = document.getElementById(`p-${pIdx}`);
+    if (existingIdx >= 0) {
+        bookmarks.splice(existingIdx, 1);
+        if (block) block.classList.remove('bookmarked');
+    } else {
+        const snippet = (activeDocument.paragraphs[pIdx]?.clean_text || '').slice(0, 110);
+        bookmarks.unshift({
+            docId: activeDocument.id,
+            docTitle: activeDocument.title,
+            paragraphIdx: pIdx,
+            snippet,
+            createdAt: Date.now()
+        });
+        if (block) block.classList.add('bookmarked');
+    }
+    saveBookmarks();
+    if (activeSidebarTab === 'bookmarks') renderBookmarksSidebar();
+}
+
+function renderBookmarksSidebar() {
+    const container = document.getElementById('bookmarksContainer');
+    container.innerHTML = '';
+    if (!bookmarks.length) {
+        container.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:0.82rem;">Aucun signet pour l\'instant. Appuyez sur « 🔖 Signet » sur un paragraphe important.</div>';
+        return;
+    }
+    bookmarks.forEach((b, idx) => {
+        const item = document.createElement('div');
+        item.className = 'doc-item';
+        item.innerHTML = `
+            <div class="doc-item-title">🔖 ${escapeHtml(b.docTitle)} (§ ${b.paragraphIdx + 1})</div>
+            <div style="font-size:0.74rem;color:var(--text-muted);">${escapeHtml(b.snippet)}…</div>
+            <div style="text-align:right;"><button class="btn-sm danger" onclick="event.stopPropagation(); deleteBookmark(${idx})">Supprimer</button></div>`;
+        item.onclick = async () => {
+            const loc = findIndicesByIds(null, null, b.docId);
+            if (loc) {
+                stopAudio();
+                await loadDocument(loc.catIdx, loc.folderIdx, loc.docIdx, b.paragraphIdx, false);
+                closeDrawer();
+            }
+        };
+        container.appendChild(item);
+    });
+}
+
+function deleteBookmark(idx) {
+    bookmarks.splice(idx, 1);
+    saveBookmarks();
+    renderBookmarksSidebar();
+}
+
+/* ============================================================================
+   8. MODALE D'IMPORT/NETTOYAGE PDF + GESTION DE STRUCTURE (CLIENT-SIDE OFFLINE)
+============================================================================ */
+function openManagerModal(tab = 'import') {
+    document.getElementById('managerModal').classList.add('open');
+    switchManagerTab(tab);
+    populateImportSelectors();
+    renderStructureEditor();
+}
+
+function closeManagerModal() {
+    document.getElementById('managerModal').classList.remove('open');
+}
+
+function switchManagerTab(tab) {
+    document.getElementById('mTabImport').classList.toggle('active', tab === 'import');
+    document.getElementById('mTabStructure').classList.toggle('active', tab === 'structure');
+    document.getElementById('paneImport').style.display = tab === 'import' ? 'flex' : 'none';
+    document.getElementById('paneStructure').style.display = tab === 'structure' ? 'flex' : 'none';
+    if (tab === 'structure') renderStructureEditor();
+}
+
+function toggleInlineCreator(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function populateImportSelectors(selectedCatId = null, selectedFolderId = null) {
+    const catSel = document.getElementById('importCatSelect');
+    catSel.innerHTML = '';
+    catalogData.categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.icon || '📚'} ${c.code} — ${c.title}`;
+        catSel.appendChild(opt);
+    });
+    if (selectedCatId) catSel.value = selectedCatId;
+    else if (catalogData.categories[currentCatIdx]) catSel.value = catalogData.categories[currentCatIdx].id;
+    refreshImportFolderSelect(selectedFolderId);
+}
+
+function refreshImportFolderSelect(selectedFolderId = null) {
+    const catId = document.getElementById('importCatSelect').value;
+    const cat = catalogData.categories.find(c => c.id === catId);
+    const fSel = document.getElementById('importFolderSelect');
+    fSel.innerHTML = '';
+    if (!cat) return;
+    cat.folders.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = `📁 ${f.title}`;
+        fSel.appendChild(opt);
+    });
+    if (selectedFolderId) fSel.value = selectedFolderId;
+    else if (cat === catalogData.categories[currentCatIdx] && cat.folders[currentFolderIdx]) {
+        fSel.value = cat.folders[currentFolderIdx].id;
+    }
+}
+
+function slugifyId(str) {
+    return String(str || 'item')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'item';
+}
+
+async function createCategoryFromImport() {
+    const icon = document.getElementById('newCatIcon').value;
+    const code = document.getElementById('newCatCode').value.trim() || 'PERSO';
+    const title = document.getElementById('newCatTitle').value.trim();
+    if (!title) return alert('Entrez un nom de catégorie.');
+    const catId = `${slugifyId(code)}_${Date.now().toString(36).slice(-4)}`;
+    const folderId = `${catId}_general`;
+    catalogData.categories.push({
+        id: catId,
+        code: code.toUpperCase(),
+        title,
+        icon,
+        isCustom: true,
+        folders: [{ id: folderId, title: 'Documents importés', isCustom: true, documents: [] }]
+    });
+    await saveCatalogToDB();
+    document.getElementById('newCatCode').value = '';
+    document.getElementById('newCatTitle').value = '';
+    document.getElementById('newCatBox').style.display = 'none';
+    populateImportSelectors(catId, folderId);
+    initQuickSelects();
+    renderSidebar();
+}
+
+async function createFolderFromImport() {
+    const catId = document.getElementById('importCatSelect').value;
+    const cat = catalogData.categories.find(c => c.id === catId);
+    const title = document.getElementById('newFolderTitle').value.trim();
+    if (!cat || !title) return alert('Entrez un nom de dossier.');
+    const folderId = `${cat.id}_${slugifyId(title)}_${Date.now().toString(36).slice(-4)}`;
+    cat.folders.push({ id: folderId, title, isCustom: true, documents: [] });
+    await saveCatalogToDB();
+    document.getElementById('newFolderTitle').value = '';
+    document.getElementById('newFolderBox').style.display = 'none';
+    refreshImportFolderSelect(folderId);
+    initQuickSelects();
+    renderSidebar();
+}
+
+function setupDragAndDrop() {
+    const dz = document.getElementById('pdfDropZone');
+    if (!dz) return;
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover');
+    }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover');
+    }));
+    dz.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleSelectedFile(file);
+    });
+}
+
+/* NETTOYAGE TEXTE CLIENT-SIDE (MIROIR PYTHON) */
+const JS_NOISE_PATTERNS = [
+    /La distribution de ce cas est autorisée uniquement pour le cours\b[\s\S]*?(?:à HEC Montréal(?:\s*de\s*\d{4}\/\d{2}\/\d{2}\s*à\s*\d{4}\/\d{2}\/\d{2})?|Programme de coaching[\s\S]*?\d{4}\/\d{2}\/\d{2}(?:\s*à\s*\d{4}\/\d{2}\/\d{2})?)/gi,
+    /La Revue internationale de cas en gestion est une revue électronique[\s\S]*?ISSN\s*\d{4}-\d{4}\.?/gi,
+    /Ce cas est destiné à servir de cadre de discussion à caractère pédagogique[\s\S]*?(?:traite\.|Canada\.|H3T\s*2A7\s*Canada\.?)/gi,
+    /Déposé sous le n°[\s\S]*?Centre de cas HEC Montréal[\s\S]*?(?:Canada\.|H3T\s*2A7)/gi,
+    /Tous droits réservés pour tous pays\.?\s*(?:Toute traduction ou toute modification sous quelque forme que ce soit est interdite\.?)?/gi,
+    /(?:Copyright\s*)?©\s*(?:\d{4}\.?\s*)?HEC Montréal\.?(?:\s*\d{1,3})?/gi,
+    /(?:Copyright\s*)?©\s*\d{4}\s*(?:by\s*)?Harvard Business School Publishing(?:\s*Corporation)?\.?\s*(?:All rights reserved\.?)?(?:\s*\d{1,3})?/gi,
+    /HBR\s*\/\s*(?:Spotlight Article|Magazine Article|Digital Article|Article)\s*\/\s*[^.\n]{3,80}/gi,
+    /FOR ARTICLE REPRINTS CALL[\s\S]{0,60}?(?:HBR\.ORG|20\d{2}|OR VISIT)/gi,
+    /\bProduct\s+no\.?\s*[A-Z0-9]{4,10}\b/gi,
+    /^(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+(?:19|20)\d{2}\s+\d{1,3}\s+/gi,
+    /This document is authorized for use only in\b[^.\n]*\.?/gi,
+    /\b(?:https?:\/\/)?(?:www\.)?hbr\.org\b/gi,
+    /\bReprint\s+[A-Z0-9]{4,10}\b/gi,
+    /\bpage\s+\d+\s+of\s+\d+\b/gi
+];
+
+const JS_HYPHEN_KEEP = new Set(['et', 'ou', 'ni', 'le', 'la', 'les', 'de', 'du', 'des', 'en', 'un', 'une', 'au', 'aux', 'ce', 'ci', 'là', 'il', 'elle', 'on']);
+
+function cleanTextClientSide(text, opts) {
+    let s = String(text || '').replace(/\u00a0|\u2002|\u2009/g, ' ');
+    if (opts.fixHyphens) {
+        s = s.replace(/([A-Za-zÀ-ÿ]{3,})-\s*\n\s*([a-zàâäéèêëîïôöùûüç]{2,})/g, (_, l, r) => JS_HYPHEN_KEEP.has(r.toLowerCase()) ? `${l}-${r}` : `${l}${r}`);
+        s = s.replace(/([A-Za-zÀ-ÿ]{3,})-\s+([a-zàâäéèêëîïôöùûüç]{3,})/g, (_, l, r) => JS_HYPHEN_KEEP.has(r.toLowerCase()) ? `${l}-${r}` : `${l}${r}`);
+    }
+    if (opts.cleanBanners) {
+        for (const rx of JS_NOISE_PATTERNS) s = s.replace(rx, ' ');
+        s = s.replace(/^\d{1,3}\s+(?=[A-ZÀ-Ÿ])/g, '').replace(/\s+\d{1,3}$/g, '');
+        if ((s.match(/\b[rR]\d{4}[a-zA-Z]\b/g) || []).length >= 2) return '';
+        const toks = s.trim().split(/\s+/);
+        if (toks.length <= 8 && toks.filter(t => t.length === 1 && /[A-Za-z]/.test(t)).length >= 3) return '';
+    }
+    return s.replace(/\s+/g, ' ').trim();
+}
+
+function removeRepeatedHeadersClientSide(pages) {
+    if (pages.length < 3) return pages;
+    const preCounts = new Map();
+    const sufCounts = new Map();
+    for (const p of pages) {
+        const w = p.trim().split(/\s+/);
+        if (w.length < 12) continue;
+        const pre = w.slice(0, 10).join(' ');
+        const suf = w.slice(-8).join(' ');
+        if (pre.length >= 15) preCounts.set(pre, (preCounts.get(pre) || 0) + 1);
+        if (suf.length >= 15) sufCounts.set(suf, (sufCounts.get(suf) || 0) + 1);
+    }
+    const minFreq = Math.max(3, Math.floor(pages.length / 3));
+    return pages.map(p => {
+        let w = p.trim().split(/\s+/);
+        if (w.length > 12) {
+            if ((preCounts.get(w.slice(0, 10).join(' ')) || 0) >= minFreq) w = w.slice(10);
+            if (w.length > 10 && (sufCounts.get(w.slice(-8).join(' ')) || 0) >= minFreq) w = w.slice(0, -8);
+        }
+        return w.join(' ');
+    });
+}
+
+function detectLangClient(text) {
+    const sample = text.slice(0, 4000).toLowerCase();
+    const words = sample.match(/[a-zàâäéèêëîïôöùûüç]+/g) || [];
+    const fr = new Set(['le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'est', 'en', 'que', 'qui', 'dans', 'pour', 'par', 'sur', 'avec', 'plus']);
+    const en = new Set(['the', 'and', 'of', 'to', 'in', 'is', 'that', 'for', 'with', 'as', 'are', 'on', 'be', 'this', 'from', 'by']);
+    let frS = (sample.match(/[éèêëàâäîïôöùûüç]/g) || []).length / 4;
+    let enS = 0;
+    for (const w of words) {
+        if (fr.has(w)) frS++;
+        if (en.has(w)) enS++;
+    }
+    return frS >= enS ? 'fr' : 'en';
+}
+
+function chunkBlocksClient(rawPages, opts) {
+    const targetWords = 165;
+    const maxWords = 210;
+    const paras = [];
+    rawPages.forEach((raw, idx) => {
+        const pageNum = idx + 1;
+        const subBlocks = raw.split(/\n\s*\n+/).map(b => cleanTextClientSide(b, opts)).filter(Boolean);
+        for (const text of subBlocks) {
+            const words = text.split(/\s+/);
+            if (!opts.chunkParas || words.length <= maxWords) {
+                if (words.length >= 3) paras.push({ page: pageNum, clean_text: text, word_count: words.length });
+                continue;
+            }
+            const sents = text.split(/(?<=[.!?…»])\s+(?=[A-ZÀ-Ÿ0-9«"(])/).filter(Boolean);
+            let buf = [];
+            let bw = 0;
+            for (const s of sents) {
+                const sw = s.split(/\s+/).length;
+                if (buf.length && bw + sw > targetWords) {
+                    const j = buf.join(' ').trim();
+                    paras.push({ page: pageNum, clean_text: j, word_count: j.split(/\s+/).length });
+                    buf = [s];
+                    bw = sw;
+                } else {
+                    buf.push(s);
+                    bw += sw;
+                }
+            }
+            if (buf.length) {
+                const j = buf.join(' ').trim();
+                if (j.split(/\s+/).length >= 3) paras.push({ page: pageNum, clean_text: j, word_count: j.split(/\s+/).length });
+            }
+        }
+    });
+    return paras;
+}
+
+async function handleSelectedFile(file) {
+    if (!file) return;
+    const prog = document.getElementById('importProgressText');
+    prog.style.display = 'block';
+    prog.innerText = `⏳ Lecture de "${file.name}"...`;
+
+    try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const baseTitle = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
+        let rawPages = [];
+
+        if (ext === 'pdf') {
+            rawPages = await extractPdfPagesBrowser(file, (cur, tot) => {
+                prog.innerText = `⏳ Extraction PDF : page ${cur} / ${tot}...`;
+            });
+        } else {
+            const text = await file.text();
+            const cleaned = ext === 'md' || ext === 'markdown'
+                ? text.replace(/^---[\s\S]*?---\s*/, '').replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/^#{1,6}\s+/gm, '').replace(/[*_`>]/g, '')
+                : text;
+            rawPages = [cleaned];
+        }
+
+        pendingImportDoc = { fileName: file.name, ext, baseTitle, rawPages };
+        reprocessPendingFile();
+        prog.style.display = 'none';
+    } catch (err) {
+        prog.innerText = `❌ Erreur : ${err.message}`;
+    }
+}
+
+async function extractPdfPagesBrowser(file, onProgress) {
+    if (typeof window.pdfjsLib === 'undefined') {
+        throw new Error('Librairie pdf.js locale non chargée.');
+    }
+    const pdfjsLib = window.pdfjsLib;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js';
+
+    const buf = await file.arrayBuffer();
+    let pdf;
+    try {
+        pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    } catch (workerErr) {
+        pdf = await pdfjsLib.getDocument({ data: buf, disableWorker: true }).promise;
+    }
+
+    const pages = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+        onProgress(p, pdf.numPages);
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale: 1.0 });
+        const content = await page.getTextContent();
+        const lines = [];
+        let curLine = [];
+        let lastY = null;
+
+        for (const item of content.items) {
+            if (!item.str) continue;
+            const y = item.transform ? item.transform[5] : 0;
+            // Ignore bandeaux extrêmes (haut/bas <= 5% marge) si texte court
+            if ((y < vp.height * 0.055 || y > vp.height * 0.945) && item.str.length < 120) continue;
+            if (lastY !== null && Math.abs(y - lastY) > 6) {
+                if (curLine.length) lines.push(curLine.join(' ').trim());
+                if (Math.abs(y - lastY) > 20) lines.push('');
+                curLine = [item.str];
+            } else {
+                curLine.push(item.str);
+            }
+            lastY = y;
+        }
+        if (curLine.length) lines.push(curLine.join(' ').trim());
+        pages.push(lines.join('\n'));
+    }
+    return pages;
+}
+
+function reprocessPendingFile() {
+    if (!pendingImportDoc) return;
+    const opts = {
+        cleanBanners: document.getElementById('optCleanBanners').checked,
+        cleanRepeat: document.getElementById('optCleanRepeat').checked,
+        fixHyphens: document.getElementById('optFixHyphens').checked,
+        chunkParas: document.getElementById('optChunkParas').checked
+    };
+
+    let pages = [...pendingImportDoc.rawPages];
+    if (opts.cleanBanners) {
+        pages = pages.map(p => {
+            let t = p;
+            for (const rx of JS_NOISE_PATTERNS) t = t.replace(rx, ' ');
+            return t;
+        });
+    }
+    if (opts.cleanRepeat) {
+        pages = removeRepeatedHeadersClientSide(pages);
+    }
+
+    const paragraphs = chunkBlocksClient(pages, opts);
+    pendingImportDoc.paragraphs = paragraphs;
+    const totalWords = paragraphs.reduce((acc, p) => acc + p.word_count, 0);
+    const estMins = Math.round((totalWords / 140) * 10) / 10;
+    const lang = detectLangClient(paragraphs.map(p => p.clean_text).join(' '));
+
+    document.getElementById('previewTitleInput').value = document.getElementById('previewTitleInput').value || pendingImportDoc.baseTitle;
+    if (!document.getElementById('previewTitleInput').dataset.edited) {
+        document.getElementById('previewTitleInput').value = pendingImportDoc.baseTitle;
+    }
+    document.getElementById('previewLangSelect').value = lang;
+    document.getElementById('previewStats').innerText = `✅ ${pendingImportDoc.rawPages.length} page(s) • ${paragraphs.length} paragraphes • ${totalWords} mots • ~${estMins} min`;
+
+    renderPreviewParagraphs();
+    document.getElementById('importPreviewBox').classList.add('visible');
+}
+
+function renderPreviewParagraphs() {
+    const list = document.getElementById('previewParaList');
+    list.innerHTML = '';
+    (pendingImportDoc.paragraphs || []).forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = 'preview-para-card';
+        card.innerHTML = `
+            <div class="struct-row">
+                <span style="color:var(--gold);font-weight:700;">§ ${idx + 1} [p. ${p.page}] • ${p.word_count} mots</span>
+                <button class="btn-sm danger" onclick="removePreviewPara(${idx})">🗑️ Retirer</button>
+            </div>
+            <textarea oninput="editPreviewPara(${idx}, this.value)">${escapeHtml(p.clean_text)}</textarea>`;
+        list.appendChild(card);
+    });
+}
+
+function editPreviewPara(idx, val) {
+    if (!pendingImportDoc) return;
+    pendingImportDoc.paragraphs[idx].clean_text = val.trim();
+    pendingImportDoc.paragraphs[idx].word_count = val.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function removePreviewPara(idx) {
+    if (!pendingImportDoc) return;
+    pendingImportDoc.paragraphs.splice(idx, 1);
+    renderPreviewParagraphs();
+}
+
+async function saveImportedDocument() {
+    if (!pendingImportDoc || !pendingImportDoc.paragraphs.length) {
+        return alert('Aucun paragraphe exploitable à enregistrer.');
+    }
+    const catId = document.getElementById('importCatSelect').value;
+    const folderId = document.getElementById('importFolderSelect').value;
+    const title = document.getElementById('previewTitleInput').value.trim() || pendingImportDoc.baseTitle;
+    const lang = document.getElementById('previewLangSelect').value;
+
+    const catIdx = catalogData.categories.findIndex(c => c.id === catId);
+    const cat = catalogData.categories[catIdx];
+    const folderIdx = cat ? cat.folders.findIndex(f => f.id === folderId) : -1;
+    const folder = cat && cat.folders[folderIdx];
+    if (!cat || !folder) return alert('Choisissez une catégorie et un dossier valides.');
+
+    const paragraphs = pendingImportDoc.paragraphs.filter(p => p.clean_text.trim().length > 0);
+    const word_count = paragraphs.reduce((acc, p) => acc + p.word_count, 0);
+    const est_minutes = Math.round((word_count / 140) * 10) / 10;
+    const docId = `custom_${slugifyId(title)}_${Date.now().toString(36)}`;
+
+    const docObj = {
+        id: docId,
+        title,
+        lang,
+        word_count,
+        est_minutes,
+        paragraphs_count: paragraphs.length,
+        source_type: pendingImportDoc.ext,
+        isCustom: true,
+        updatedAt: Date.now(),
+        paragraphs
+    };
+
+    const meta = {
+        id: docId,
+        title,
+        lang,
+        word_count,
+        est_minutes,
+        paragraphs_count: paragraphs.length,
+        source_type: pendingImportDoc.ext,
+        isCustom: true,
+        data_file: `audio_data/docs/${docId}.json`
+    };
+
+    await dbPut('docs_store', docObj);
+    folder.documents.push(meta);
+    const docIdx = folder.documents.length - 1;
+    await saveCatalogToDB();
+    tryPushDocToLocalServer(docObj);
+
+    pendingImportDoc = null;
+    document.getElementById('importPreviewBox').classList.remove('visible');
+    closeManagerModal();
+    initQuickSelects();
+    await updateOfflineBadge();
+    await loadDocument(catIdx, folderIdx, docIdx, 0, true);
+}
+
+/* ============================================================================
+   9. ÉDITEUR DE STRUCTURE COMPLET & EXPORT AUTONOME
+============================================================================ */
+function renderStructureEditor() {
+    const container = document.getElementById('structureTreeContainer');
+    container.innerHTML = '';
+
+    catalogData.categories.forEach((cat, cIdx) => {
+        const card = document.createElement('div');
+        card.className = 'struct-card';
+        card.innerHTML = `
+            <div class="struct-row">
+                <strong>${escapeHtml(cat.icon || '📚')} ${escapeHtml(cat.code)} — ${escapeHtml(cat.title)}</strong>
+                <div class="inline-row">
+                    <button class="btn-sm" onclick="moveCategory(${cIdx}, -1)">⬆️</button>
+                    <button class="btn-sm" onclick="moveCategory(${cIdx}, 1)">⬇️</button>
+                    <button class="btn-sm" onclick="renameCategory(${cIdx})">✏️</button>
+                    <button class="btn-sm primary" onclick="promptCreateFolder(${cIdx})">+ Dossier</button>
+                    <button class="btn-sm danger" onclick="deleteCategory(${cIdx})">🗑️</button>
+                </div>
+            </div>`;
+
+        (cat.folders || []).forEach((folder, fIdx) => {
+            const fBox = document.createElement('div');
+            fBox.style.cssText = 'margin-left:10px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.06);';
+            fBox.innerHTML = `
+                <div class="struct-row" style="margin-bottom:6px;">
+                    <span style="font-size:0.82rem;font-weight:700;color:#bae6fd;">📁 ${escapeHtml(folder.title)} (${folder.documents.length})</span>
+                    <div class="inline-row">
+                        <button class="btn-sm" onclick="moveFolder(${cIdx}, ${fIdx}, -1)">⬆️</button>
+                        <button class="btn-sm" onclick="moveFolder(${cIdx}, ${fIdx}, 1)">⬇️</button>
+                        <button class="btn-sm" onclick="renameFolder(${cIdx}, ${fIdx})">✏️</button>
+                        <button class="btn-sm danger" onclick="deleteFolder(${cIdx}, ${fIdx})">🗑️</button>
+                    </div>
+                </div>`;
+
+            const dList = document.createElement('div');
+            dList.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+            (folder.documents || []).forEach((doc, dIdx) => {
+                const row = document.createElement('div');
+                row.className = 'struct-row';
+                row.style.cssText = 'padding:4px 6px;border-radius:6px;background:rgba(255,255,255,0.03);font-size:0.76rem;';
+                row.innerHTML = `
+                    <span style="flex:1;min-width:140px;">${doc.isCustom ? '⭐ ' : '📄 '}${escapeHtml(doc.title)}</span>
+                    <div class="inline-row">
+                        <button class="btn-sm" onclick="renameDocument(${cIdx}, ${fIdx}, ${dIdx})">✏️</button>
+                        <button class="btn-sm" onclick="moveDocumentPrompt(${cIdx}, ${fIdx}, ${dIdx})">📦 Déplacer</button>
+                        <button class="btn-sm danger" onclick="deleteDocument(${cIdx}, ${fIdx}, ${dIdx})">🗑️</button>
+                    </div>`;
+                dList.appendChild(row);
+            });
+            fBox.appendChild(dList);
+            card.appendChild(fBox);
+        });
+        container.appendChild(card);
+    });
+}
+
+async function promptCreateCategory() {
+    const title = prompt('Nom de la nouvelle catégorie (ex: Stratégie d\'entreprise) :');
+    if (!title || !title.trim()) return;
+    const code = prompt('Code court (ex: MNGT 50500) :', title.trim().slice(0, 12).toUpperCase()) || 'PERSO';
+    const catId = `${slugifyId(code)}_${Date.now().toString(36).slice(-4)}`;
+    catalogData.categories.push({
+        id: catId,
+        code: code.trim().toUpperCase(),
+        title: title.trim(),
+        icon: '📚',
+        isCustom: true,
+        folders: [{ id: `${catId}_general`, title: 'Général', isCustom: true, documents: [] }]
+    });
+    await refreshStructureUI();
+}
+
+async function renameCategory(cIdx) {
+    const cat = catalogData.categories[cIdx];
+    const title = prompt('Nouveau nom de la catégorie :', cat.title);
+    if (!title || !title.trim()) return;
+    const code = prompt('Nouveau code court :', cat.code);
+    cat.title = title.trim();
+    if (code && code.trim()) cat.code = code.trim().toUpperCase();
+    await refreshStructureUI();
+}
+
+async function moveCategory(cIdx, delta) {
+    const target = cIdx + delta;
+    if (target < 0 || target >= catalogData.categories.length) return;
+    const [item] = catalogData.categories.splice(cIdx, 1);
+    catalogData.categories.splice(target, 0, item);
+    await refreshStructureUI();
+}
+
+async function deleteCategory(cIdx) {
+    const cat = catalogData.categories[cIdx];
+    if (!confirm(`Supprimer la catégorie "${cat.title}" et tous ses dossiers ?`)) return;
+    deletedDocIds.add(`cat:${cat.id}`);
+    (cat.folders || []).forEach(f => (f.documents || []).forEach(d => deletedDocIds.add(d.id)));
+    catalogData.categories.splice(cIdx, 1);
+    await saveDeletedIds();
+    await refreshStructureUI();
+}
+
+async function promptCreateFolder(cIdx) {
+    const title = prompt('Nom du nouveau dossier / séance :');
+    if (!title || !title.trim()) return;
+    const cat = catalogData.categories[cIdx];
+    const folderId = `${cat.id}_${slugifyId(title)}_${Date.now().toString(36).slice(-4)}`;
+    cat.folders.push({ id: folderId, title: title.trim(), isCustom: true, documents: [] });
+    await refreshStructureUI();
+}
+
+async function renameFolder(cIdx, fIdx) {
+    const folder = catalogData.categories[cIdx].folders[fIdx];
+    const title = prompt('Nouveau nom du dossier :', folder.title);
+    if (!title || !title.trim()) return;
+    folder.title = title.trim();
+    await refreshStructureUI();
+}
+
+async function moveFolder(cIdx, fIdx, delta) {
+    const folders = catalogData.categories[cIdx].folders;
+    const target = fIdx + delta;
+    if (target < 0 || target >= folders.length) return;
+    const [item] = folders.splice(fIdx, 1);
+    folders.splice(target, 0, item);
+    await refreshStructureUI();
+}
+
+async function deleteFolder(cIdx, fIdx) {
+    const folder = catalogData.categories[cIdx].folders[fIdx];
+    if (!confirm(`Supprimer le dossier "${folder.title}" ?`)) return;
+    deletedDocIds.add(`folder:${folder.id}`);
+    (folder.documents || []).forEach(d => deletedDocIds.add(d.id));
+    catalogData.categories[cIdx].folders.splice(fIdx, 1);
+    await saveDeletedIds();
+    await refreshStructureUI();
+}
+
+async function renameDocument(cIdx, fIdx, dIdx) {
+    const doc = catalogData.categories[cIdx].folders[fIdx].documents[dIdx];
+    const title = prompt('Nouveau titre du document :', doc.title);
+    if (!title || !title.trim()) return;
+    doc.title = title.trim();
+    doc.isCustom = true;
+    const fullDoc = await dbGet('docs_store', doc.id);
+    if (fullDoc) {
+        fullDoc.title = doc.title;
+        fullDoc.isCustom = true;
+        await dbPut('docs_store', fullDoc);
+    }
+    await refreshStructureUI();
+}
+
+async function moveDocumentPrompt(cIdx, fIdx, dIdx) {
+    const folderChoices = [];
+    catalogData.categories.forEach((c, ci) => {
+        (c.folders || []).forEach((f, fi) => {
+            folderChoices.push({ ci, fi, label: `${folderChoices.length + 1}. ${c.code} / ${f.title}` });
+        });
+    });
+    const choiceStr = prompt(
+        'Choisissez le numéro du dossier de destination :\n\n' +
+        folderChoices.map(x => x.label).join('\n')
+    );
+    const num = parseInt(choiceStr, 10);
+    if (!num || num < 1 || num > folderChoices.length) return;
+    const dest = folderChoices[num - 1];
+    const [doc] = catalogData.categories[cIdx].folders[fIdx].documents.splice(dIdx, 1);
+    catalogData.categories[dest.ci].folders[dest.fi].documents.push(doc);
+    await refreshStructureUI();
+}
+
+async function deleteDocument(cIdx, fIdx, dIdx) {
+    const doc = catalogData.categories[cIdx].folders[fIdx].documents[dIdx];
+    if (!confirm(`Supprimer le document "${doc.title}" ?`)) return;
+    deletedDocIds.add(doc.id);
+    catalogData.categories[cIdx].folders[fIdx].documents.splice(dIdx, 1);
+    await saveDeletedIds();
+    await dbDelete('docs_store', doc.id);
+    await refreshStructureUI();
+}
+
+async function refreshStructureUI() {
+    await saveCatalogToDB();
+    renderStructureEditor();
+    populateImportSelectors();
+    initQuickSelects();
+    renderSidebar();
+    await updateOfflineBadge();
+}
+
+/* SAUVEGARDES & EXPORT HTML AUTONOME 100% OFFLINE */
+async function exportStandaloneHtml() {
+    try {
+        await syncAllOffline(false);
+        const docsArr = await dbGetAll('docs_store');
+        const docsMap = {};
+        for (const d of docsArr) docsMap[d.id] = d;
+        const bundlePayload = JSON.stringify({ catalog: catalogData, documents: docsMap }).replace(/<\/script/gi, '<\\/script');
+
+        let htmlSource = '';
+        if (window.location.protocol !== 'file:') {
+            try {
+                const resp = await fetch(window.location.pathname || './lecteur_audio_mngt50415.html');
+                if (resp.ok) htmlSource = await resp.text();
+            } catch (e) {}
+        }
+
+        if (htmlSource) {
+            let pdfJsInline = '';
+            try {
+                const pdfResp = await fetch('./vendor/pdf.min.js');
+                if (pdfResp.ok) pdfJsInline = await pdfResp.text();
+            } catch (e) {}
+            if (pdfJsInline) {
+                htmlSource = htmlSource.replace(
+                    /<script\s+src="\.\/vendor\/pdf\.min\.js"\s+id="pdfJsScriptTag"><\/script>/i,
+                    `<script id="pdfJsScriptTag">${pdfJsInline.replace(/<\/script/gi, '<\\/script')}<\/script>`
+                );
+            }
+            const bundleTag = `<script id="preloadedBundleScript">window.PRELOADED_LIBRARY_BUNDLE = ${bundlePayload};<\/script>`;
+            htmlSource = htmlSource.replace(
+                /<script>\s*\/\*\s*=+\s*[\r\n]+\s*1\. VERROU CODE PIN/,
+                `${bundleTag}\n<script>\n/* ============================================================================\n   1. VERROU CODE PIN`
+            );
+        } else {
+            const clone = document.documentElement.cloneNode(true);
+            ['contentArticle', 'sessionsContainer', 'bookmarksContainer', 'quickCatSelect', 'quickFolderSelect', 'quickDocSelect'].forEach(id => {
+                const el = clone.querySelector('#' + id);
+                if (el) el.innerHTML = '';
+            });
+            const oldBundle = clone.querySelector('#preloadedBundleScript');
+            if (oldBundle) oldBundle.remove();
+            const bScript = document.createElement('script');
+            bScript.id = 'preloadedBundleScript';
+            bScript.textContent = `window.PRELOADED_LIBRARY_BUNDLE = ${bundlePayload};`;
+            clone.querySelector('head').appendChild(bScript);
+            htmlSource = '<!DOCTYPE html>\n' + clone.outerHTML;
+        }
+
+        const dateTag = new Date().toISOString().slice(0, 10);
+        triggerDownload(`Lecteur_MBA_Autonome_${dateTag}.html`, htmlSource, 'text/html;charset=utf-8');
+    } catch (err) {
+        alert('Erreur export HTML : ' + err.message);
+    }
+}
+
+async function exportBackupJson() {
+    await syncAllOffline(false);
+    const docsArr = await dbGetAll('docs_store');
+    const payload = JSON.stringify({ catalog: catalogData, documents: docsArr, bookmarks }, null, 2);
+    triggerDownload(`mba_audio_backup_${new Date().toISOString().slice(0, 10)}.json`, payload, 'application/json');
+}
+
+async function importBackupJson(file) {
+    if (!file) return;
+    try {
+        const parsed = JSON.parse(await file.text());
+        if (!parsed.catalog || !Array.isArray(parsed.catalog.categories)) throw new Error('Format JSON invalide');
+        catalogData = parsed.catalog;
+        await saveCatalogToDB();
+        for (const d of (parsed.documents || [])) {
+            await dbPut('docs_store', d);
+        }
+        if (Array.isArray(parsed.bookmarks)) {
+            bookmarks = parsed.bookmarks;
+            saveBookmarks();
+        }
+        await refreshStructureUI();
+        await loadDocument(0, 0, 0, 0, true);
+        alert('✅ Sauvegarde restaurée avec succès !');
+    } catch (err) {
+        alert('❌ Erreur import JSON : ' + err.message);
+    }
+}
+
+async function resetLibraryToDefault() {
+    if (!confirm('Réinitialiser la structure aux données officielles ? Les documents personnalisés supprimés ne pourront pas être récupérés.')) return;
+    deletedDocIds = new Set();
+    await saveDeletedIds();
+    await dbDelete('meta_store', 'catalog');
+    await dbDelete('meta_store', 'remote_synced_at');
+    window.location.reload();
+}
+
+function triggerDownload(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 500);
+}
+
+/* SYNCHRONISATION DISQUE OPTIONNELLE AVEC SERVEUR LOCAL PYTHON */
+function tryPushDocToLocalServer(docObj) {
+    if (!window.location.protocol.startsWith('http')) return;
+    fetch('./api/save-doc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(docObj)
+    }).catch(() => {});
+}
+
+function tryPushCatalogToLocalServer() {
+    if (!window.location.protocol.startsWith('http')) return;
+    fetch('./api/save-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(catalogData)
+    }).catch(() => {});
+}
+</script>
+</body>
+</html>
