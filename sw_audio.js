@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mba-audio-vault-enc-v2.1.0-1794868923';
+const CACHE_NAME = 'mba-audio-vault-enc-v2.1.1-1794877692';
 
 const CORE_ASSETS = [
   './index.html',

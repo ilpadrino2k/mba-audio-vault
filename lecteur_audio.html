@@ -1933,9 +1933,14 @@ const speeds = [0.85, 1.0, 1.15, 1.25, 1.5, 1.75, 2.0];
 let availableVoices = [];
 let selectedVoice = null;
 let currentUtterance = null;
+let utterancePool = [];
 let speechToken = 0;
 let speechSpeakTimer = null;
+let speechWatchdogTimer = null;
+let lastSpeechActivityAt = 0;
+let speechRecoveryAttempts = 0;
 let keepAliveDisabledForSession = false;
+let keepAliveErrorCount = 0;
 const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 let lastClickedParaIdx = -1;
@@ -2345,11 +2350,13 @@ function playFromParagraph(pIdx) {
     currentParagraphIdx = pIdx;
     currentWordCharOffset = 0;
     isPlaying = true;
+    speechRecoveryAttempts = 0;
     updatePlayBtn(true);
     hydrateParagraphWindow(pIdx);
     highlightActiveParagraph(pIdx, true);
     requestWakeLock();
-    readCurrentParagraph();
+    startBackgroundAudioKeepAlive();
+    readCurrentParagraph(false);
 }
 
 function playFromWord(pIdx, charOffset) {
@@ -2357,18 +2364,80 @@ function playFromWord(pIdx, charOffset) {
     currentParagraphIdx = pIdx;
     currentWordCharOffset = charOffset;
     isPlaying = true;
+    speechRecoveryAttempts = 0;
     updatePlayBtn(true);
     hydrateParagraphWindow(pIdx);
     highlightActiveParagraph(pIdx, true);
     requestWakeLock();
-    readCurrentParagraph();
+    startBackgroundAudioKeepAlive();
+    readCurrentParagraph(false);
 }
 
 function startReadingFromStart() {
     playFromParagraph(0);
 }
 
-function readCurrentParagraph() {
+function splitIntoSpeechChunks(fullText, baseOffset = 0, maxChunkLen = 210) {
+    const chunks = [];
+    const totalLen = fullText.length;
+    let cursor = 0;
+
+    while (cursor < totalLen) {
+        while (cursor < totalLen && /\s/.test(fullText[cursor])) cursor++;
+        if (cursor >= totalLen) break;
+
+        const remaining = totalLen - cursor;
+        if (remaining <= maxChunkLen) {
+            const slice = fullText.slice(cursor).trimEnd();
+            if (slice.length > 0) {
+                chunks.push({ text: slice, startOffset: baseOffset + cursor });
+            }
+            break;
+        }
+
+        const windowEnd = cursor + maxChunkLen;
+        const windowStr = fullText.slice(cursor, windowEnd);
+        let splitRel = -1;
+
+        // Priorité 1 : fin de phrase (. ! ? …) après au moins 60 caractères
+        const sentenceMatches = [...windowStr.matchAll(/[.!?…]+(?=\s|$)/g)];
+        for (let i = sentenceMatches.length - 1; i >= 0; i--) {
+            const pos = sentenceMatches[i].index + sentenceMatches[i][0].length;
+            if (pos >= 60) {
+                splitRel = pos;
+                break;
+            }
+        }
+
+        // Priorité 2 : virgule, point-virgule ou deux-points après 70 caractères
+        if (splitRel === -1) {
+            const clauseMatches = [...windowStr.matchAll(/[,;:—–]+(?=\s)/g)];
+            for (let i = clauseMatches.length - 1; i >= 0; i--) {
+                const pos = clauseMatches[i].index + clauseMatches[i][0].length;
+                if (pos >= 70) {
+                    splitRel = pos;
+                    break;
+                }
+            }
+        }
+
+        // Priorité 3 : dernier espace dans la fenêtre
+        if (splitRel === -1) {
+            const lastSpace = windowStr.lastIndexOf(' ');
+            splitRel = lastSpace > 40 ? lastSpace : maxChunkLen;
+        }
+
+        const slice = fullText.slice(cursor, cursor + splitRel).trimEnd();
+        if (slice.length > 0) {
+            chunks.push({ text: slice, startOffset: baseOffset + cursor });
+        }
+        cursor += splitRel;
+    }
+
+    return chunks;
+}
+
+function readCurrentParagraph(fromOnEnd = false) {
     if (!('speechSynthesis' in window) || !activeDocument) return;
 
     if (speechSpeakTimer) {
@@ -2388,98 +2457,139 @@ function readCurrentParagraph() {
     }
 
     const pData = activeDocument.paragraphs[currentParagraphIdx];
-    const startingOffset = currentWordCharOffset;
+    const startingOffset = Math.max(0, currentWordCharOffset || 0);
     const textToSpeak = startingOffset > 0 ? pData.clean_text.substring(startingOffset) : pData.clean_text;
+    const chunks = splitIntoSpeechChunks(textToSpeak, startingOffset, 210);
+
+    if (chunks.length === 0) {
+        currentWordCharOffset = 0;
+        currentParagraphIdx++;
+        readCurrentParagraph(fromOnEnd);
+        return;
+    }
 
     const myToken = ++speechToken;
-    const hadActiveSpeech = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+    const hadActiveSpeech = !fromOnEnd && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
     if (hadActiveSpeech) {
         try { window.speechSynthesis.cancel(); } catch (e) {}
     }
 
-    const speakUtteranceNow = () => {
+    const speakChunkAt = (chunkIdx) => {
         if (myToken !== speechToken || !isPlaying) return;
+        if (chunkIdx >= chunks.length) {
+            clearWordHighlights();
+            currentWordCharOffset = 0;
+            currentParagraphIdx++;
+            readCurrentParagraph(true);
+            return;
+        }
 
-        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-        if (selectedVoice) currentUtterance.voice = selectedVoice;
-        currentUtterance.lang = activeDocument.lang === 'en' ? 'en-US' : 'fr-CA';
-        currentUtterance.rate = currentSpeed;
-        const speakStartedAt = Date.now();
+        const chunk = chunks[chunkIdx];
+        const utter = new SpeechSynthesisUtterance(chunk.text);
+        if (selectedVoice) utter.voice = selectedVoice;
+        utter.lang = activeDocument.lang === 'en' ? 'en-US' : 'fr-CA';
+        utter.rate = currentSpeed;
 
-        currentUtterance.onstart = () => {
+        currentUtterance = utter;
+        utterancePool.push(utter);
+        if (utterancePool.length > 6) utterancePool.shift();
+
+        lastSpeechActivityAt = Date.now();
+        startSpeechWatchdog();
+
+        utter.onstart = () => {
             if (myToken !== speechToken) return;
-            hydrateParagraphWindow(currentParagraphIdx);
-            highlightActiveParagraph(currentParagraphIdx, true);
-            updateProgress();
-            saveResumePosition();
-            updateMediaSessionMetadata();
+            lastSpeechActivityAt = Date.now();
+            speechRecoveryAttempts = 0;
+            if (chunkIdx === 0) {
+                hydrateParagraphWindow(currentParagraphIdx);
+                highlightActiveParagraph(currentParagraphIdx, true);
+                updateProgress();
+                saveResumePosition();
+                updateMediaSessionMetadata();
+            }
         };
 
-        currentUtterance.onboundary = (event) => {
+        utter.onboundary = (event) => {
             if (myToken !== speechToken) return;
+            lastSpeechActivityAt = Date.now();
             if (event.name === 'word' || !event.name) {
-                const absOffset = startingOffset + event.charIndex;
+                const absOffset = chunk.startOffset + event.charIndex;
                 currentWordCharOffset = absOffset;
                 highlightCurrentWord(currentParagraphIdx, absOffset);
             }
         };
 
-        currentUtterance.onend = () => {
+        utter.onend = () => {
+            utterancePool = utterancePool.filter(u => u !== utter);
             if (myToken !== speechToken) return;
-            clearWordHighlights();
-            currentWordCharOffset = 0;
-            if (isPlaying) {
+            lastSpeechActivityAt = Date.now();
+            if (!isPlaying) return;
+
+            if (chunkIdx + 1 < chunks.length) {
+                currentWordCharOffset = chunks[chunkIdx + 1].startOffset;
+                speakChunkAt(chunkIdx + 1);
+            } else {
+                clearWordHighlights();
+                currentWordCharOffset = 0;
                 currentParagraphIdx++;
-                readCurrentParagraph();
+                readCurrentParagraph(true);
             }
         };
 
-        currentUtterance.onerror = (event) => {
+        utter.onerror = (event) => {
+            utterancePool = utterancePool.filter(u => u !== utter);
             if (myToken !== speechToken) return;
             const err = event && event.error ? String(event.error) : '';
-            // Sur iOS Safari, <audio> keep-alive ou un cancel() asynchrone peut couper speechSynthesis
-            if (isPlaying && !keepAliveDisabledForSession && (Date.now() - speakStartedAt < 1200 || err === 'interrupted')) {
-                keepAliveDisabledForSession = true;
-                stopBackgroundAudioKeepAlive();
-                speechSpeakTimer = setTimeout(() => {
-                    if (myToken === speechToken && isPlaying) {
-                        readCurrentParagraph();
-                    }
-                }, 90);
-                return;
-            }
-            if (isPlaying && (err === 'canceled' || err === 'interrupted')) {
-                speechSpeakTimer = setTimeout(() => {
-                    if (myToken === speechToken && isPlaying) {
-                        readCurrentParagraph();
-                    }
-                }, 90);
-                return;
+            if (!isPlaying) return;
+
+            if (err === 'canceled' || err === 'interrupted' || err === 'synthesis-failed' || err === 'audio-busy') {
+                if (speechRecoveryAttempts < 4) {
+                    speechRecoveryAttempts++;
+                    lastSpeechActivityAt = Date.now();
+                    speechSpeakTimer = setTimeout(() => {
+                        if (myToken === speechToken && isPlaying) {
+                            readCurrentParagraph(false);
+                        }
+                    }, 120);
+                    return;
+                }
             }
             clearWordHighlights();
             stopAudio();
         };
 
-        window.speechSynthesis.speak(currentUtterance);
+        try {
+            window.speechSynthesis.speak(utter);
+        } catch (e) {
+            if (speechRecoveryAttempts < 3) {
+                speechRecoveryAttempts++;
+                speechSpeakTimer = setTimeout(() => {
+                    if (myToken === speechToken && isPlaying) readCurrentParagraph(false);
+                }, 150);
+            } else {
+                stopAudio();
+            }
+        }
     };
 
     const startKeepAliveAndSpeak = () => {
-        const delayMs = hadActiveSpeech ? 75 : 0;
-        if (keepAliveDisabledForSession) {
-            if (delayMs > 0) {
-                speechSpeakTimer = setTimeout(speakUtteranceNow, delayMs);
-            } else {
-                speakUtteranceNow();
-            }
+        const delayMs = hadActiveSpeech ? 80 : 0;
+        const launch = () => {
+            if (myToken !== speechToken || !isPlaying) return;
+            speakChunkAt(0);
+        };
+
+        if (keepAliveDisabledForSession || fromOnEnd) {
+            if (delayMs > 0) speechSpeakTimer = setTimeout(launch, delayMs);
+            else launch();
             return;
         }
+
         startBackgroundAudioKeepAlive().then(() => {
             if (myToken !== speechToken || !isPlaying) return;
-            if (delayMs > 0) {
-                speechSpeakTimer = setTimeout(speakUtteranceNow, delayMs);
-            } else {
-                speakUtteranceNow();
-            }
+            if (delayMs > 0) speechSpeakTimer = setTimeout(launch, delayMs);
+            else launch();
         });
     };
 
@@ -2534,14 +2644,17 @@ function togglePlay() {
 function resumeAudio() {
     if (!('speechSynthesis' in window)) return;
     isPlaying = true;
+    speechRecoveryAttempts = 0;
+    lastSpeechActivityAt = Date.now();
     updatePlayBtn(true);
     requestWakeLock();
+    startBackgroundAudioKeepAlive();
     if (!isIOSDevice && window.speechSynthesis.paused) {
-        startBackgroundAudioKeepAlive();
         window.speechSynthesis.resume();
+        startSpeechWatchdog();
         updateMediaSessionMetadata();
     } else {
-        readCurrentParagraph();
+        readCurrentParagraph(false);
     }
 }
 
@@ -2552,6 +2665,7 @@ function pauseAudio() {
         clearTimeout(speechSpeakTimer);
         speechSpeakTimer = null;
     }
+    stopSpeechWatchdog();
     if (isIOSDevice) {
         try { window.speechSynthesis.cancel(); } catch (e) {}
     } else {
@@ -2571,6 +2685,8 @@ function stopAudio(keepSession = false) {
         clearTimeout(speechSpeakTimer);
         speechSpeakTimer = null;
     }
+    stopSpeechWatchdog();
+    utterancePool = [];
     if ('speechSynthesis' in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
         try { window.speechSynthesis.cancel(); } catch (e) {}
     }
@@ -2763,6 +2879,50 @@ function updateMediaSessionMetadata() {
     } catch (e) {}
 }
 
+function startSpeechWatchdog() {
+    if (speechWatchdogTimer) return;
+    speechWatchdogTimer = setInterval(() => {
+        if (!isPlaying || !('speechSynthesis' in window) || !activeDocument) return;
+        if (speechSpeakTimer) return;
+
+        const now = Date.now();
+        const elapsed = now - lastSpeechActivityAt;
+        const speaking = window.speechSynthesis.speaking;
+        const pending = window.speechSynthesis.pending;
+        const paused = window.speechSynthesis.paused;
+
+        // Cas 1 : Le navigateur a silencieusement coupé speechSynthesis sans déclencher onend/onerror
+        if (!speaking && !pending && elapsed > 2500) {
+            lastSpeechActivityAt = now;
+            if (speechRecoveryAttempts < 6) {
+                speechRecoveryAttempts++;
+                readCurrentParagraph(true);
+            } else {
+                stopAudio();
+            }
+            return;
+        }
+
+        // Cas 2 : L'énoncé est figé (bug ~15s Chromium ou daemon iOS bloqué)
+        if (speaking && !paused && elapsed > 22000) {
+            lastSpeechActivityAt = now;
+            if (speechRecoveryAttempts < 6) {
+                speechRecoveryAttempts++;
+                readCurrentParagraph(false);
+            } else {
+                stopAudio();
+            }
+        }
+    }, 2000);
+}
+
+function stopSpeechWatchdog() {
+    if (speechWatchdogTimer) {
+        clearInterval(speechWatchdogTimer);
+        speechWatchdogTimer = null;
+    }
+}
+
 function startBackgroundAudioKeepAlive() {
     if (keepAliveDisabledForSession) {
         return Promise.resolve(false);
@@ -2784,12 +2944,25 @@ function startBackgroundAudioKeepAlive() {
             bgKeepAliveAudioEl.style.display = 'none';
             document.body.appendChild(bgKeepAliveAudioEl);
         }
+        if (!bgKeepAliveAudioEl.dataset.fallbackBound) {
+            bgKeepAliveAudioEl.dataset.fallbackBound = '1';
+            bgKeepAliveAudioEl.addEventListener('error', () => {
+                const fallbackUrl = createSilentWavUrl();
+                if (bgKeepAliveAudioEl.src !== fallbackUrl) {
+                    bgKeepAliveAudioEl.src = fallbackUrl;
+                    if (isPlaying) bgKeepAliveAudioEl.play().catch(() => {});
+                }
+            });
+        }
         bgKeepAliveAudioEl.volume = 1.0;
         if (bgKeepAliveAudioEl.paused) {
             const p = bgKeepAliveAudioEl.play();
             if (p && typeof p.then === 'function') {
                 playPromise = Promise.race([
-                    p.catch(() => {}),
+                    p.then(() => { keepAliveErrorCount = 0; }).catch(() => {
+                        keepAliveErrorCount++;
+                        if (keepAliveErrorCount >= 3) keepAliveDisabledForSession = true;
+                    }),
                     new Promise((resolve) => setTimeout(resolve, 140))
                 ]);
             }
@@ -2804,8 +2977,14 @@ function startBackgroundAudioKeepAlive() {
             if (!isPlaying || !('speechSynthesis' in window)) return;
             if (window.speechSynthesis.paused) {
                 try { window.speechSynthesis.resume(); } catch (e) {}
+            } else if (window.speechSynthesis.speaking) {
+                // Contournement du bug Chromium (~15s) sur desktop : micro pause/resume
+                try {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.resume();
+                } catch (e) {}
             }
-        }, 4000);
+        }, 10000);
     }
 
     return playPromise;
@@ -2827,8 +3006,13 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && isPlaying) {
         requestWakeLock();
         startBackgroundAudioKeepAlive();
-        if ('speechSynthesis' in window && window.speechSynthesis.paused) {
-            try { window.speechSynthesis.resume(); } catch (e) {}
+        if ('speechSynthesis' in window) {
+            if (window.speechSynthesis.paused) {
+                try { window.speechSynthesis.resume(); } catch (e) {}
+            } else if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending && !speechSpeakTimer) {
+                lastSpeechActivityAt = Date.now();
+                readCurrentParagraph(true);
+            }
         }
     }
 });
